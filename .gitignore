@@ -1,0 +1,29 @@
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# OpenCode runtime
+.opencode/
+
+# Mavis plan workspace
+.mavis/
+
+# Local Python venvs
+.venv/
+.venv-*/
+
+# Rust build artefacts (also covered by .gitignore from cargo new, but
+# we include them here for greenfield consistency)
+target/
+**/*.rs.bk
+Cargo.lock.bak
+
+# Local data
+data/
+mnemos.db
+mnemos.db-journal
+mnemos.db-shm
+mnemos.db-wal
