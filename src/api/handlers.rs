@@ -113,10 +113,13 @@ mnemos is MCP-native — use the MCP tools, not raw HTTP. A skill is just text,
 so it can't connect MCP by itself: STEP 1 registers the MCP server, STEP 2
 writes the skill that drives it.
 
-STEP 1 — Register the mnemos MCP server with your host. For Claude Code, add
-this to .mcp.json (project) or ~/.claude/mcp.json (global), then reload so the
-tools appear:
+STEP 1 — Register the mnemos MCP server with Claude Code:
 
+  mnemos setup --api-key YOUR_API_KEY
+
+That runs `claude mcp add` for you. Reload Claude Code and the tools appear.
+
+(Not running Claude Code? Add this to .mcp.json manually instead:
 {
   "mcpServers": {
     "mnemos": {
@@ -126,8 +129,7 @@ tools appear:
     }
   }
 }
-
-(The `mnemos` binary must be on PATH. No API key yet? Register one:
+No API key yet? Register one:
 POST __BASE__/api/v1/auth/register {"username","password"} returns an api_key.)
 
 STEP 2 — Write the skill to  .claude/skills/mnemos-memory/SKILL.md  with EXACTLY

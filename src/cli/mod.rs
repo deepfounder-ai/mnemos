@@ -85,6 +85,18 @@ pub enum Cmd {
     },
     /// Run linter over the user's wiki.
     Lint,
+    /// Register the mnemos MCP server with Claude Code (runs `claude mcp add`).
+    Setup {
+        /// Override the data directory passed to the MCP server.
+        #[arg(long)]
+        data_dir: Option<String>,
+        /// Override the API key passed to the MCP server.
+        #[arg(long)]
+        api_key: Option<String>,
+        /// Claude MCP scope: local | user | project.
+        #[arg(long, default_value = "user")]
+        scope: String,
+    },
 }
 
 #[derive(Debug, Subcommand)]

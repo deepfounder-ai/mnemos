@@ -32,7 +32,7 @@ pub async fn run(cli: Cli) -> ExitCode {
 }
 
 async fn dispatch(cli: Cli) -> CliResult<()> {
-    // serve / mcp are special — they don't need a client.
+    // serve / mcp / setup are special — they don't need a client.
     match &cli.command {
         Cmd::Serve { .. } => {
             return misc::run_serve(&cli).await;
@@ -44,6 +44,9 @@ async fn dispatch(cli: Cli) -> CliResult<()> {
             misc::run_completions(*shell);
             return Ok(());
         }
+        Cmd::Setup { data_dir, api_key, scope } => {
+            return misc::run_setup(data_dir.as_deref(), api_key.as_deref(), scope);
+        }
         _ => {}
     }
 
@@ -52,7 +55,7 @@ async fn dispatch(cli: Cli) -> CliResult<()> {
     let client = Client::new(&config)?;
 
     match cli.command {
-        Cmd::Serve { .. } | Cmd::Mcp | Cmd::Completions { .. } => unreachable!(),
+        Cmd::Serve { .. } | Cmd::Mcp | Cmd::Completions { .. } | Cmd::Setup { .. } => unreachable!(),
         Cmd::User(u) => user::run(client, cli.json, u).await,
         Cmd::Keys(k) => keys::run(client, cli.json, k).await,
         Cmd::Pages(p) => pages::run(client, cli.json, p).await,

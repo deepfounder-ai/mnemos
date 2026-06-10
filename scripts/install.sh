@@ -90,6 +90,8 @@ if [ -n "$API_KEY" ]; then
   printf '\nSave the API key — it is shown only once. Use it like:\n'
   printf '  export MNEMOS_API_URL=%s\n' "$BASE"
   printf '  export MNEMOS_API_KEY=%s\n' "$API_KEY"
+  printf '\nConnect Claude Code in one command:\n'
+  printf '  MNEMOS_API_KEY=%s mnemos setup\n' "$API_KEY"
 else
   printf '  (user "%s" may already exist — log in with: mnemos user login %s)\n' "$USER_NAME" "$USER_NAME"
 fi

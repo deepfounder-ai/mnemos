@@ -39,6 +39,50 @@ pub async fn run_serve(cli: &Cli) -> CliResult<()> {
     Ok(())
 }
 
+/// `setup` — register the mnemos MCP server with Claude Code.
+pub fn run_setup(data_dir: Option<&str>, api_key: Option<&str>, scope: &str) -> CliResult<()> {
+    let bin = std::env::current_exe()
+        .map_err(|e| CliError::Other(format!("find binary: {e}")))?;
+    let bin_str = bin.to_string_lossy().to_string();
+
+    let data_dir_val = data_dir
+        .map(|s| s.to_string())
+        .or_else(|| std::env::var("MNEMOS_DATA_DIR").ok())
+        .unwrap_or_else(|| "./data".to_string());
+
+    let api_key_val = api_key
+        .map(|s| s.to_string())
+        .or_else(|| std::env::var("MNEMOS_API_KEY").ok());
+
+    let mut cmd = std::process::Command::new("claude");
+    cmd.args(["mcp", "add", "mnemos", &bin_str, "mcp"]);
+    cmd.args(["-e", &format!("MNEMOS_DATA_DIR={data_dir_val}")]);
+    if let Some(ref key) = api_key_val {
+        cmd.args(["-e", &format!("MNEMOS_API_KEY={key}")]);
+    }
+    cmd.args(["--scope", scope]);
+
+    eprintln!(
+        "Running: claude mcp add mnemos {bin_str} mcp -e MNEMOS_DATA_DIR={data_dir_val} --scope {scope}"
+    );
+
+    let status = cmd
+        .status()
+        .map_err(|e| CliError::Other(format!("exec claude: {e}")))?;
+
+    if status.success() {
+        println!("mnemos MCP server registered (scope={scope}).");
+        if api_key_val.is_none() {
+            println!("Tip: set MNEMOS_API_KEY before starting Claude Code, or re-run with --api-key.");
+        }
+        Ok(())
+    } else {
+        Err(CliError::Other(format!(
+            "claude mcp add exited with status {status}"
+        )))
+    }
+}
+
 /// `mcp` — run the stdio MCP server.
 pub async fn run_mcp() -> CliResult<()> {
     crate::mcp::run_stdio()
