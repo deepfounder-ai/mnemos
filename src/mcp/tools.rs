@@ -72,13 +72,14 @@ pub fn list_tools() -> Vec<Tool> {
         tool(
             "list_pages",
             "List pages in the wiki. Supports optional substring match on title/slug, \
-             a single tag filter, and a `page_type` filter (concept|recipe|reference|decision).",
+             a single tag filter, a `page_type` filter, and a `project` filter.",
             json!({
                 "type": "object",
                 "properties": {
                     "query":     { "type": "string",  "description": "Substring filter on title or slug." },
                     "tag":       { "type": "string",  "description": "Filter to pages carrying this tag." },
                     "page_type": { "type": "string",  "enum": ["concept", "recipe", "reference", "decision"], "description": "Filter to a specific page_type." },
+                    "project":   { "type": "string",  "description": "Filter to pages belonging to a specific project." },
                     "limit":     { "type": "integer", "minimum": 1, "maximum": 1000, "description": "Maximum number of pages to return." }
                 },
                 "additionalProperties": false,
@@ -364,6 +365,7 @@ async fn tool_list_pages(args: Value, user: &AuthedContext) -> Result<Vec<TextCo
     let page_type = arg_str(&args, "page_type")?.map(str::to_string);
     let tag = arg_str(&args, "tag")?.map(str::to_string);
     let query = arg_str(&args, "query")?.map(str::to_string);
+    let project = arg_str(&args, "project")?.map(str::to_string);
     let limit = arg_i64_opt(&args, "limit")?;
     // The REST surface uses a single `tag`; we accept the array form for
     // agent convenience and OR-filter the result.
@@ -375,6 +377,7 @@ async fn tool_list_pages(args: Value, user: &AuthedContext) -> Result<Vec<TextCo
         query: query.clone(),
         tag: tag.clone(),
         page_type: page_type.clone(),
+        project: project.clone(),
         limit: Some(limit),
     };
     let mut pages = svc.list(&user.user_id, &filter).await?;
@@ -386,7 +389,7 @@ async fn tool_list_pages(args: Value, user: &AuthedContext) -> Result<Vec<TextCo
     }
     let _ = &mut filter;
     let summary = json!({
-        "filter": { "query": query, "tag": tag, "tags": tags, "page_type": page_type, "limit": limit },
+        "filter": { "query": query, "tag": tag, "tags": tags, "page_type": page_type, "project": project, "limit": limit },
         "count": pages.len(),
         "pages": pages,
     });

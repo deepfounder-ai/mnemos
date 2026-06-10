@@ -151,6 +151,7 @@ pub struct ListPagesQuery {
     pub tag: Option<String>,
     #[serde(rename = "type")]
     pub page_type: Option<String>,
+    pub project: Option<String>,
     pub q: Option<String>,
     pub limit: Option<i64>,
     pub offset: Option<i64>,
@@ -165,6 +166,8 @@ pub struct PageSummary {
     pub page_type: Option<PageType>,
     pub tags: Vec<String>,
     pub scope: Scope,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
 }
 
 impl From<&Page> for PageSummary {
@@ -177,6 +180,7 @@ impl From<&Page> for PageSummary {
             page_type: p.frontmatter.page_type,
             tags: p.frontmatter.tags.clone(),
             scope: p.frontmatter.scope,
+            project: p.frontmatter.project.clone(),
         }
     }
 }

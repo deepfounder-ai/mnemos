@@ -31,6 +31,8 @@ pub struct Frontmatter {
     pub page_type: Option<PageType>,
     #[serde(default)]
     pub related: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
 }
 
 fn default_scope() -> Scope {
@@ -254,6 +256,7 @@ related: [event-streaming]
             scope: Scope::Local,
             page_type: Some(PageType::Recipe),
             related: vec!["other".into()],
+            project: None,
         };
         let yaml = to_yaml(&fm).unwrap();
         let fm2 = parse(&yaml).unwrap();

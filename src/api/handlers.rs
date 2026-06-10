@@ -365,6 +365,7 @@ pub async fn list_pages(
         query: q.q.clone(),
         tag: q.tag.clone(),
         page_type: q.page_type.clone(),
+        project: q.project.clone(),
         limit: None, // apply limit/offset after, so `total` is meaningful
     };
     let svc = PageService::new(state);

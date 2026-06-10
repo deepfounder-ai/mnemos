@@ -19,6 +19,7 @@ fn basic_fm() -> Frontmatter {
         scope: Scope::Global,
         page_type: Some(PageType::Concept),
         related: vec!["event-streaming".into()],
+        project: None,
     }
 }
 

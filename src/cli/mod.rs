@@ -125,6 +125,8 @@ pub enum PagesCmd {
         #[arg(long = "type")]
         page_type: Option<String>,
         #[arg(long)]
+        project: Option<String>,
+        #[arg(long)]
         query: Option<String>,
     },
     Get {

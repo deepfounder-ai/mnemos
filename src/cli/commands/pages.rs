@@ -34,6 +34,7 @@ pub async fn run(client: Client, json: bool, cmd: PagesCmd) -> CliResult<()> {
         PagesCmd::List {
             tag,
             page_type,
+            project,
             query,
         } => {
             let mut params: Vec<(String, String)> = Vec::new();
@@ -42,6 +43,9 @@ pub async fn run(client: Client, json: bool, cmd: PagesCmd) -> CliResult<()> {
             }
             if let Some(t) = page_type {
                 params.push(("type".into(), t));
+            }
+            if let Some(p) = project {
+                params.push(("project".into(), p));
             }
             if let Some(q) = query {
                 params.push(("q".into(), q));

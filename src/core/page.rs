@@ -36,6 +36,8 @@ pub struct PageFilter {
     pub tag: Option<String>,
     /// Restrict to a particular page type.
     pub page_type: Option<String>,
+    /// Restrict to a particular project.
+    pub project: Option<String>,
     /// Maximum number of rows to return.
     pub limit: Option<i64>,
 }
@@ -178,6 +180,16 @@ impl PageService {
                 let matches = fm
                     .and_then(|f| f.page_type)
                     .map(|p| p.as_str() == pt)
+                    .unwrap_or(false);
+                if !matches {
+                    return false;
+                }
+            }
+            if let Some(proj) = &filter.project {
+                let fm = parse_fm(&r.frontmatter_json).ok();
+                let matches = fm
+                    .and_then(|f| f.project)
+                    .map(|p| p == *proj)
                     .unwrap_or(false);
                 if !matches {
                     return false;
