@@ -1,0 +1,35 @@
+# mnemos — one-command local stack.
+#
+#   docker compose up -d           # build + run, data persisted in a volume
+#   docker compose logs -f         # follow logs
+#   docker compose down            # stop (keeps the volume)
+#
+# Override the published image instead of building from source:
+#   MNEMOS_IMAGE=ghcr.io/OWNER/mnemos:latest docker compose up -d
+
+services:
+  mnemos:
+    image: ${MNEMOS_IMAGE:-mnemos:local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mnemos
+    restart: unless-stopped
+    ports:
+      - "${MNEMOS_PORT:-8080}:8080"
+    environment:
+      MNEMOS_HOST: 0.0.0.0
+      MNEMOS_PORT: 8080
+      MNEMOS_DATA_DIR: /data
+      MNEMOS_LOG: ${MNEMOS_LOG:-info}
+    volumes:
+      - mnemos-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/healthz"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  mnemos-data:

@@ -55,7 +55,10 @@ fn render(groups: &BTreeMap<&'static str, Vec<IndexEntry>>) -> String {
     let mut out = String::new();
     out.push_str("# Index\n\n");
     out.push_str("Auto-generated catalog of all wiki pages. Re-built on every write.\n\n");
-    out.push_str(&format!("_Total pages: _{}\n\n", groups.values().map(|v| v.len()).sum::<usize>()));
+    out.push_str(&format!(
+        "_Total pages: _{}\n\n",
+        groups.values().map(|v| v.len()).sum::<usize>()
+    ));
 
     for (kind, entries) in groups {
         if entries.is_empty() {

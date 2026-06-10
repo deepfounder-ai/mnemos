@@ -11,8 +11,7 @@ use crate::error::{AppError, Result};
 use crate::storage::{fs_layout, page_repo, AppState};
 
 /// Page service. All methods are scoped by `user_id` for tenant isolation.
-#[derive(Clone)]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct PageService {
     state: AppState,
 }
@@ -59,7 +58,7 @@ impl PageService {
 
         let title = frontmatter
             .title
-           .clone()
+            .clone()
             .unwrap_or_else(|| title_from_body(body));
 
         let fm_json = frontmatter::to_json(&frontmatter)?;
@@ -106,14 +105,19 @@ impl PageService {
             .ok_or_else(|| AppError::NotFound(format!("page '{slug}'")))?;
 
         // Always bump updated_at; let callers opt out by passing updated: None.
-        frontmatter.updated = Some(frontmatter.updated.unwrap_or_else(|| Utc::now().date_naive()));
+        frontmatter.updated = Some(
+            frontmatter
+                .updated
+                .unwrap_or_else(|| Utc::now().date_naive()),
+        );
         let title = frontmatter
             .title
             .clone()
             .unwrap_or_else(|| title_from_body(body));
 
         let fm_json = frontmatter::to_json(&frontmatter)?;
-        let row = page_repo::update_content(&self.state.db, &existing.id, &title, &fm_json, body).await?;
+        let row =
+            page_repo::update_content(&self.state.db, &existing.id, &title, &fm_json, body).await?;
 
         write_page_file(&self.state, user_id, &row).await?;
         rebuild_index(user_id, &self.state).await?;
@@ -164,9 +168,7 @@ impl PageService {
             }
             if let Some(tag) = &filter.tag {
                 let fm = parse_fm(&r.frontmatter_json).ok();
-                let has_tag = fm
-                    .map(|f| f.tags.iter().any(|t| t == tag))
-                    .unwrap_or(false);
+                let has_tag = fm.map(|f| f.tags.iter().any(|t| t == tag)).unwrap_or(false);
                 if !has_tag {
                     return false;
                 }
@@ -240,12 +242,11 @@ fn page_from_row(row: page_repo::PageRow, fm: Frontmatter) -> Result<Page> {
     })
 }
 
-async fn validate_unique_slug(
-    user_id: &str,
-    slug: &str,
-    state: &AppState,
-) -> Result<()> {
-    if page_repo::get_by_slug(&state.db, user_id, slug).await?.is_some() {
+async fn validate_unique_slug(user_id: &str, slug: &str, state: &AppState) -> Result<()> {
+    if page_repo::get_by_slug(&state.db, user_id, slug)
+        .await?
+        .is_some()
+    {
         return Err(AppError::Conflict(format!(
             "page with slug '{slug}' already exists"
         )));
@@ -253,15 +254,12 @@ async fn validate_unique_slug(
     Ok(())
 }
 
-async fn write_page_file(
-    state: &AppState,
-    user_id: &str,
-    row: &page_repo::PageRow,
-) -> Result<()> {
+async fn write_page_file(state: &AppState, user_id: &str, row: &page_repo::PageRow) -> Result<()> {
     fs_layout::ensure_user_dirs(&state.config.data_dir, user_id)?;
     let fm: Frontmatter = parse_fm(&row.frontmatter_json)?;
     let body_md = frontmatter::render(&fm, &row.body)?;
-    let path = fs_layout::pages_dir(&state.config.data_dir, user_id).join(format!("{}.md", row.slug));
+    let path =
+        fs_layout::pages_dir(&state.config.data_dir, user_id).join(format!("{}.md", row.slug));
     write_atomic(&path, &body_md).await
 }
 
@@ -324,7 +322,10 @@ mod tests {
             title: Some("First".into()),
             ..Default::default()
         };
-        let p = svc.create(&user, "first", fm, "body one").await.expect("create");
+        let p = svc
+            .create(&user, "first", fm, "body one")
+            .await
+            .expect("create");
         assert_eq!(p.slug, "first");
         assert_eq!(p.title, "First");
 
@@ -335,7 +336,10 @@ mod tests {
             title: Some("First v2".into()),
             ..Default::default()
         };
-        let updated = svc.update(&user, "first", fm2, "body two").await.expect("update");
+        let updated = svc
+            .update(&user, "first", fm2, "body two")
+            .await
+            .expect("update");
         assert_eq!(updated.title, "First v2");
         assert_eq!(updated.body, "body two");
 
@@ -347,8 +351,13 @@ mod tests {
     async fn slug_collisions_rejected() {
         let (svc, state, _d) = svc().await;
         let user = ensure_user(&state, "bob").await;
-        let fm = Frontmatter { title: Some("X".into()), ..Default::default() };
-        svc.create(&user, "x", fm.clone(), "1").await.expect("first");
+        let fm = Frontmatter {
+            title: Some("X".into()),
+            ..Default::default()
+        };
+        svc.create(&user, "x", fm.clone(), "1")
+            .await
+            .expect("first");
         assert!(svc.create(&user, "x", fm, "2").await.is_err());
     }
 
@@ -356,7 +365,10 @@ mod tests {
     async fn slug_auto_from_title() {
         let (svc, state, _d) = svc().await;
         let user = ensure_user(&state, "c").await;
-        let fm = Frontmatter { title: Some("Some Title".into()), ..Default::default() };
+        let fm = Frontmatter {
+            title: Some("Some Title".into()),
+            ..Default::default()
+        };
         let p = svc.create(&user, "", fm, "body").await.expect("auto-slug");
         assert_eq!(p.slug, "some-title");
     }
@@ -365,14 +377,32 @@ mod tests {
     async fn list_filter_by_tag_and_type() {
         let (svc, state, _d) = svc().await;
         let user = ensure_user(&state, "d").await;
-        let mut a = Frontmatter { title: Some("A".into()), tags: vec!["k".into()], page_type: Some(frontmatter::PageType::Concept), ..Default::default() };
-        let mut b = Frontmatter { title: Some("B".into()), tags: vec!["k".into()], page_type: Some(frontmatter::PageType::Recipe), ..Default::default() };
-        let c = Frontmatter { title: Some("C".into()), tags: vec!["x".into()], page_type: Some(frontmatter::PageType::Concept), ..Default::default() };
+        let mut a = Frontmatter {
+            title: Some("A".into()),
+            tags: vec!["k".into()],
+            page_type: Some(frontmatter::PageType::Concept),
+            ..Default::default()
+        };
+        let mut b = Frontmatter {
+            title: Some("B".into()),
+            tags: vec!["k".into()],
+            page_type: Some(frontmatter::PageType::Recipe),
+            ..Default::default()
+        };
+        let c = Frontmatter {
+            title: Some("C".into()),
+            tags: vec!["x".into()],
+            page_type: Some(frontmatter::PageType::Concept),
+            ..Default::default()
+        };
         svc.create(&user, "a", a.clone(), "1").await.unwrap();
         svc.create(&user, "b", b.clone(), "2").await.unwrap();
         svc.create(&user, "c", c.clone(), "3").await.unwrap();
 
-        let f1 = PageFilter { tag: Some("k".into()), ..Default::default() };
+        let f1 = PageFilter {
+            tag: Some("k".into()),
+            ..Default::default()
+        };
         let r1 = svc.list(&user, &f1).await.unwrap();
         assert_eq!(r1.len(), 2);
 
@@ -380,7 +410,10 @@ mod tests {
         b.page_type = Some(frontmatter::PageType::Recipe);
         let _ = a;
         let _ = b;
-        let f2 = PageFilter { page_type: Some("recipe".into()), ..Default::default() };
+        let f2 = PageFilter {
+            page_type: Some("recipe".into()),
+            ..Default::default()
+        };
         let r2 = svc.list(&user, &f2).await.unwrap();
         assert_eq!(r2.len(), 1);
         assert_eq!(r2[0].slug, "b");
@@ -391,7 +424,10 @@ mod tests {
         let (svc, state, _d) = svc().await;
         let u1 = ensure_user(&state, "iso1").await;
         let u2 = ensure_user(&state, "iso2").await;
-        let fm = Frontmatter { title: Some("S".into()), ..Default::default() };
+        let fm = Frontmatter {
+            title: Some("S".into()),
+            ..Default::default()
+        };
         svc.create(&u1, "shared", fm, "1").await.unwrap();
         // u2 cannot see u1's page.
         assert!(svc.get(&u2, "shared").await.is_err());

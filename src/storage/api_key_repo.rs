@@ -87,12 +87,10 @@ pub async fn get_by_hash(pool: &SqlitePool, key_hash: &str) -> Result<Option<Api
 }
 
 pub async fn list_for_user(pool: &SqlitePool, user_id: &str) -> Result<Vec<ApiKeyRow>> {
-    let rows = sqlx::query(
-        "SELECT * FROM api_keys WHERE user_id = ?1 ORDER BY created_at DESC",
-    )
-    .bind(user_id)
-    .fetch_all(pool)
-    .await?;
+    let rows = sqlx::query("SELECT * FROM api_keys WHERE user_id = ?1 ORDER BY created_at DESC")
+        .bind(user_id)
+        .fetch_all(pool)
+        .await?;
     rows.iter().map(ApiKeyRow::from_row).collect()
 }
 

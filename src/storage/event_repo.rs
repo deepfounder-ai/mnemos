@@ -21,7 +21,9 @@ impl EventRow {
         let parse_dt = |s: String| -> Result<DateTime<Utc>> {
             DateTime::parse_from_rfc3339(&s)
                 .map(|d| d.with_timezone(&Utc))
-                .map_err(|e| crate::error::AppError::Internal(format!("invalid datetime '{s}': {e}")))
+                .map_err(|e| {
+                    crate::error::AppError::Internal(format!("invalid datetime '{s}': {e}"))
+                })
         };
         Ok(Self {
             id: row.try_get("id")?,
@@ -85,13 +87,11 @@ pub async fn list_for_user(
             .await?
         }
         None => {
-            sqlx::query(
-                "SELECT * FROM events WHERE user_id = ?1 ORDER BY ts DESC LIMIT ?2",
-            )
-            .bind(user_id)
-            .bind(limit)
-            .fetch_all(pool)
-            .await?
+            sqlx::query("SELECT * FROM events WHERE user_id = ?1 ORDER BY ts DESC LIMIT ?2")
+                .bind(user_id)
+                .bind(limit)
+                .fetch_all(pool)
+                .await?
         }
     };
     rows.iter().map(EventRow::from_row).collect()

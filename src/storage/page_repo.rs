@@ -102,12 +102,10 @@ pub async fn get_by_slug(pool: &SqlitePool, user_id: &str, slug: &str) -> Result
 
 /// List all pages for a user, ordered by `updated_at` desc.
 pub async fn list_for_user(pool: &SqlitePool, user_id: &str) -> Result<Vec<PageRow>> {
-    let rows = sqlx::query(
-        "SELECT * FROM pages WHERE user_id = ?1 ORDER BY updated_at DESC",
-    )
-    .bind(user_id)
-    .fetch_all(pool)
-    .await?;
+    let rows = sqlx::query("SELECT * FROM pages WHERE user_id = ?1 ORDER BY updated_at DESC")
+        .bind(user_id)
+        .fetch_all(pool)
+        .await?;
     rows.iter().map(PageRow::from_row).collect()
 }
 

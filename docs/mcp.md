@@ -18,32 +18,27 @@ does not pollute the protocol stream.
 Typical launch:
 
 ```bash
-mnemos mcp --api-url http://localhost:8080 --api-key mnemo_…
+mnemos mcp
 ```
 
-(The CLI subcommand is reserved in v0.1; the canonical launch path in
-v0.1 is to run the dedicated `mnemos-mcp` binary or `mnemos serve --mcp`,
-whichever the foundation task lands on. See `docs/cli.md` once the
-binary shape is finalised.)
-
-Inside the agent host, the server is configured like any other MCP
-process. Examples below.
+The MCP server runs **in-process**: it opens the same SQLite + filesystem
+store the REST server uses, directly — there is no upstream HTTP hop. It is
+configured by environment variables (below), like any other MCP process in
+your host.
 
 ---
 
 ## Authentication
 
-The server needs two pieces of information:
+The server needs two environment variables when spawned:
 
-- The mnemos API URL (`MNEMOS_API_URL`, default `http://localhost:8080`).
-- An API key (`MNEMOS_API_KEY`).
+- `MNEMOS_DATA_DIR` — the data directory of the store to serve (must match the
+  REST server's, default `./data`).
+- `MNEMOS_API_KEY` — an API key (`mnemo_…`); the server resolves it against
+  that store to pick the user whose namespace it serves.
 
-These are passed as environment variables when the MCP process is
-spawned. The server does **not** read keys from a config file in v0.1 —
-keeping them in env is safer and easier to rotate.
-
-The server caches the key in memory and uses it to sign every upstream
-REST call. There is no token refresh flow in v0.1; rotate the key by
+`MNEMOS_API_URL` is **not** used by the MCP server (it only matters to the
+REST/CLI HTTP client). The key is resolved once at startup; rotate it by
 restarting the process with a new `MNEMOS_API_KEY`.
 
 ---
@@ -220,7 +215,7 @@ worked examples for the most common hosts.
       "command": "mnemos",
       "args": ["mcp"],
       "env": {
-        "MNEMOS_API_URL": "http://localhost:8080",
+        "MNEMOS_DATA_DIR": "/path/to/mnemos/data",
         "MNEMOS_API_KEY": "mnemo_…"
       }
     }
@@ -239,7 +234,7 @@ worked examples for the most common hosts.
       "command": "mnemos",
       "args": ["mcp"],
       "env": {
-        "MNEMOS_API_URL": "http://localhost:8080",
+        "MNEMOS_DATA_DIR": "/path/to/mnemos/data",
         "MNEMOS_API_KEY": "mnemo_…"
       }
     }

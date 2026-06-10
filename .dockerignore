@@ -1,0 +1,26 @@
+# Build artifacts (rebuilt inside the image)
+/target
+
+# Local runtime data
+/data
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# VCS / CI / editor
+.git
+.github
+.gitignore
+.idea
+.vscode
+*.swp
+
+# Tooling scratch
+.mavis
+.opencode
+.venv-validate
+.claude
+
+# Docs that don't affect the build (kept small build context)
+*.log

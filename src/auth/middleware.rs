@@ -68,17 +68,23 @@ pub async fn require_auth(
 }
 
 fn unauthorized(msg: &'static str) -> Response {
-    (
+    let mut response = (
         StatusCode::UNAUTHORIZED,
-        Json(json!({ "code": "unauthenticated", "message": msg })),
+        Json(json!({ "error": { "code": "unauthenticated", "message": msg } })),
     )
-        .into_response()
+        .into_response();
+    // RFC 6750 §3 — request Bearer authentication.
+    response.headers_mut().insert(
+        header::WWW_AUTHENTICATE,
+        axum::http::HeaderValue::from_static("Bearer"),
+    );
+    response
 }
 
 fn internal_error() -> Response {
     (
         StatusCode::INTERNAL_SERVER_ERROR,
-        Json(json!({ "code": "internal", "message": "internal server error" })),
+        Json(json!({ "error": { "code": "internal", "message": "internal server error" } })),
     )
         .into_response()
 }

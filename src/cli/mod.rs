@@ -1,10 +1,14 @@
-//! CLI commands (clap derive). Phase 1 exposes the full subcommand
-//! surface; each command is a `unimplemented!()` stub except for `serve`
-//! and `mcp` which are wired in `main.rs`.
+//! CLI surface (clap derive). The CLI is a thin HTTP client over the REST
+//! API (`docs/cli.md`); `serve`, `mcp`, and `completions` are the only
+//! subcommands that run in-process.
 
-pub mod cmd;
+pub mod client;
+pub mod commands;
+pub mod config;
+pub mod output;
 
 use clap::{Parser, Subcommand};
+use clap_complete::Shell;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -14,6 +18,18 @@ use clap::{Parser, Subcommand};
     long_about = None,
 )]
 pub struct Cli {
+    /// Base URL of the mnemos server (overrides MNEMOS_API_URL).
+    #[arg(long, global = true)]
+    pub api_url: Option<String>,
+
+    /// API key (overrides MNEMOS_API_KEY).
+    #[arg(long, global = true)]
+    pub api_key: Option<String>,
+
+    /// Emit raw JSON instead of human-readable output.
+    #[arg(long, global = true)]
+    pub json: bool,
+
     #[command(subcommand)]
     pub command: Cmd,
 }
@@ -31,6 +47,11 @@ pub enum Cmd {
     },
     /// Run the MCP server on stdio.
     Mcp,
+    /// Generate shell completions.
+    Completions {
+        /// Target shell.
+        shell: Shell,
+    },
     /// User management.
     #[command(subcommand)]
     User(UserCmd),
@@ -43,7 +64,7 @@ pub enum Cmd {
     /// Source management.
     #[command(subcommand)]
     Sources(SourcesCmd),
-    /// Search pages.
+    /// Search pages (FTS5 ranked).
     Search {
         /// Search query.
         query: String,
@@ -68,16 +89,24 @@ pub enum Cmd {
 
 #[derive(Debug, Subcommand)]
 pub enum UserCmd {
+    /// Register a new user; prints the initial API key once.
     Register {
         username: String,
         #[arg(long)]
         password: Option<String>,
+        /// Read the password from stdin (trailing newline trimmed).
+        #[arg(long)]
+        password_stdin: bool,
     },
+    /// Exchange username + password for a fresh API key.
     Login {
         username: String,
         #[arg(long)]
         password: Option<String>,
+        #[arg(long)]
+        password_stdin: bool,
     },
+    /// Print the user_id + username of the configured API key.
     Whoami,
 }
 
@@ -98,7 +127,9 @@ pub enum PagesCmd {
         #[arg(long)]
         query: Option<String>,
     },
-    Get { slug: String },
+    Get {
+        slug: String,
+    },
     Create {
         slug: String,
         #[arg(long)]
@@ -115,7 +146,9 @@ pub enum PagesCmd {
         #[arg(long)]
         from_stdin: bool,
     },
-    Delete { slug: String },
+    Delete {
+        slug: String,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -131,5 +164,7 @@ pub enum SourcesCmd {
         #[arg(long)]
         slug: Option<String>,
     },
-    Get { id: String },
+    Get {
+        id: String,
+    },
 }

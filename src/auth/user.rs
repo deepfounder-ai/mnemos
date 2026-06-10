@@ -5,8 +5,7 @@ use crate::error::{AppError, Result};
 use crate::storage::{api_key_repo, user_repo, AppState};
 
 /// High-level user operations.
-#[derive(Clone)]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct UserService {
     state: AppState,
 }
@@ -72,7 +71,11 @@ impl UserService {
 
     /// Validate a (username, password) pair. Returns the user row and a
     /// freshly-issued API key on success.
-    pub async fn login(&self, username: &str, password: &str) -> Result<(user_repo::UserRow, ApiKey)> {
+    pub async fn login(
+        &self,
+        username: &str,
+        password: &str,
+    ) -> Result<(user_repo::UserRow, ApiKey)> {
         let user = user_repo::get_by_username(&self.state.db, username)
             .await?
             .ok_or(AppError::InvalidCredentials)?;
@@ -104,7 +107,10 @@ impl UserService {
 
     /// Resolve an API key plaintext to its user id. Returns `None` if the key
     /// is unknown or malformed.
-    pub async fn resolve_api_key(&self, plaintext: &str) -> Result<Option<api_key_repo::ApiKeyRow>> {
+    pub async fn resolve_api_key(
+        &self,
+        plaintext: &str,
+    ) -> Result<Option<api_key_repo::ApiKeyRow>> {
         if !crate::auth::api_key::looks_like_api_key(plaintext) {
             return Ok(None);
         }
@@ -114,11 +120,7 @@ impl UserService {
     }
 
     /// Issue a new API key for a user, with a friendly name.
-    pub async fn create_api_key(
-        &self,
-        user_id: &str,
-        name: &str,
-    ) -> Result<ApiKey> {
+    pub async fn create_api_key(&self, user_id: &str, name: &str) -> Result<ApiKey> {
         if name.trim().is_empty() {
             return Err(AppError::Validation("key name must not be empty".into()));
         }
@@ -165,7 +167,9 @@ impl UserService {
                 }
                 Ok(removed)
             }
-            Some(_) => Err(AppError::Forbidden("api key belongs to another user".into())),
+            Some(_) => Err(AppError::Forbidden(
+                "api key belongs to another user".into(),
+            )),
             None => Ok(false),
         }
     }

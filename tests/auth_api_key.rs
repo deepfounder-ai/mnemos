@@ -42,7 +42,10 @@ fn unique_per_invocation() {
     let mut seen = HashSet::new();
     for i in 0..n {
         let k = generate(format!("id-{i}"), "n");
-        assert!(seen.insert(k.plaintext.clone()), "duplicate plaintext in run {i}");
+        assert!(
+            seen.insert(k.plaintext.clone()),
+            "duplicate plaintext in run {i}"
+        );
     }
     assert_eq!(seen.len(), n);
 }
@@ -71,7 +74,10 @@ fn base62_charset() {
         let k = generate("id", "n");
         let body = &k.plaintext["mnemo_".len()..];
         for c in body.chars() {
-            assert!(c.is_ascii_alphanumeric(), "non-alphanumeric char in body: {c:?}");
+            assert!(
+                c.is_ascii_alphanumeric(),
+                "non-alphanumeric char in body: {c:?}"
+            );
         }
     }
 }
