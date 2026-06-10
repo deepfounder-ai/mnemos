@@ -1,0 +1,91 @@
+[package]
+name = "mnemos"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT"
+description = "Cloud memory for AI agents — persistent wiki + sources + index, with REST/MCP/CLI surface"
+readme = "README.md"
+authors = ["mnemos contributors"]
+
+[lib]
+name = "mnemos"
+path = "src/lib.rs"
+
+[[bin]]
+name = "mnemos"
+path = "src/main.rs"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.40", features = ["full"] }
+async-trait = "0.1"
+futures = "0.3"
+
+# HTTP
+axum = { version = "0.7", features = ["macros"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+hyper = "1"
+
+# Database
+sqlx = { version = "0.8", default-features = false, features = [
+    "sqlite",
+    "runtime-tokio-rustls",
+    "macros",
+    "chrono",
+    "uuid",
+    "migrate",
+] }
+
+# Serde / format
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+
+# Markdown / frontmatter
+pulldown-cmark = { version = "0.12", default-features = false, features = ["html"] }
+
+# Time / ids
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.10", features = ["v7", "v4", "serde"] }
+
+# Auth
+argon2 = "0.5"
+sha2 = "0.10"
+hex = "0.4"
+base64 = "0.22"
+rand = "0.8"
+
+# Errors
+thiserror = "1"
+anyhow = "1"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+# CLI
+clap = { version = "4.5", features = ["derive", "env"] }
+
+# HTTP client (for source URL fetching)
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+
+# Misc
+url = "2"
+bytes = "1"
+once_cell = "1"
+parking_lot = "0.12"
+
+[dev-dependencies]
+tempfile = "3"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+tokio = { version = "1.40", features = ["full", "test-util"] }
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
