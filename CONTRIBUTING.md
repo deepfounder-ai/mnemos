@@ -6,7 +6,7 @@ is to keep it simple and well-tested.
 ## Getting set up
 
 ```bash
-git clone https://github.com/OWNER/mnemos && cd mnemos
+git clone https://github.com/deepfounder-ai/mnemos && cd mnemos
 cargo build
 cargo test
 ```

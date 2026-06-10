@@ -5,7 +5,7 @@
 #   docker compose down            # stop (keeps the volume)
 #
 # Override the published image instead of building from source:
-#   MNEMOS_IMAGE=ghcr.io/OWNER/mnemos:latest docker compose up -d
+#   MNEMOS_IMAGE=ghcr.io/deepfounder-ai/mnemos:latest docker compose up -d
 
 services:
   mnemos:
