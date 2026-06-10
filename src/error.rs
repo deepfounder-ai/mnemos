@@ -1,10 +1,13 @@
 //! Unified error type for the `mnemos` service.
 //!
 //! [`AppError`] is the canonical error returned by every core and storage
-//! function. The HTTP layer maps it to [`ApiError`], which implements
-//! `axum::response::IntoResponse` to produce a JSON error body.
+//! function. The HTTP layer maps it to [`ApiError`] (defined in
+//! [`crate::api::error`]), which implements `axum::response::IntoResponse` to
+//! produce a JSON error body.
+//!
+//! `ApiError` is re-exported from this module for convenience — most
+//! call-sites still want `use crate::error::{AppError, ApiError}`.
 
-use serde_json::Value as JsonValue;
 use thiserror::Error;
 
 /// Crate-wide result alias.
@@ -90,109 +93,10 @@ impl AppError {
     }
 }
 
-/// HTTP-aware error wrapper used by the `api` layer.
-///
-/// Produces a JSON body of the shape `{ "error": { "code", "message", "details"? } }`
-/// and adds `WWW-Authenticate: Bearer` for 401 responses.
-#[derive(Debug)]
-pub struct ApiError {
-    pub status: axum::http::StatusCode,
-    pub body: ApiErrorBody,
-}
-
-/// JSON body returned to clients on error. Wrapped under `error` in the
-/// final response.
-#[derive(Debug, serde::Serialize)]
-pub struct ApiErrorBody {
-    pub code: String,
-    pub message: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub details: Option<JsonValue>,
-}
-
-impl ApiError {
-    pub fn new(
-        status: axum::http::StatusCode,
-        code: impl Into<String>,
-        message: impl Into<String>,
-    ) -> Self {
-        Self {
-            status,
-            body: ApiErrorBody {
-                code: code.into(),
-                message: message.into(),
-                details: None,
-            },
-        }
-    }
-
-    /// Attach a structured `details` payload (rendered under `error.details`).
-    pub fn with_details(mut self, details: JsonValue) -> Self {
-        self.body.details = Some(details);
-        self
-    }
-}
-
-impl From<AppError> for ApiError {
-    fn from(err: AppError) -> Self {
-        let status = match &err {
-            AppError::NotFound(_) => axum::http::StatusCode::NOT_FOUND,
-            AppError::Conflict(_) => axum::http::StatusCode::CONFLICT,
-            AppError::Validation(_) | AppError::BadRequest(_) => {
-                axum::http::StatusCode::BAD_REQUEST
-            }
-            AppError::Unprocessable(_) => axum::http::StatusCode::UNPROCESSABLE_ENTITY,
-            AppError::Unauthenticated | AppError::InvalidApiKey | AppError::InvalidCredentials => {
-                axum::http::StatusCode::UNAUTHORIZED
-            }
-            AppError::Forbidden(_) => axum::http::StatusCode::FORBIDDEN,
-            AppError::PayloadTooLarge(_) => axum::http::StatusCode::PAYLOAD_TOO_LARGE,
-            AppError::Io(_)
-            | AppError::Db(_)
-            | AppError::Migration(_)
-            | AppError::Serde(_)
-            | AppError::Yaml(_)
-            | AppError::Http(_)
-            | AppError::Internal(_) => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-        };
-        let message = err.to_string();
-        let code = err.code();
-        // Log internal errors with full context, but never expose details to the
-        // client beyond the code.
-        if status == axum::http::StatusCode::INTERNAL_SERVER_ERROR {
-            tracing::error!(error = %err, "internal error");
-        }
-        ApiError {
-            status,
-            body: ApiErrorBody {
-                code: code.to_string(),
-                // Avoid leaking internal details.
-                message: if status == axum::http::StatusCode::INTERNAL_SERVER_ERROR {
-                    "internal server error".to_string()
-                } else {
-                    message
-                },
-                details: None,
-            },
-        }
-    }
-}
-
-impl axum::response::IntoResponse for ApiError {
-    fn into_response(self) -> axum::response::Response {
-        let status = self.status;
-        let body = axum::Json(serde_json::json!({ "error": self.body }));
-        let mut response = (status, body).into_response();
-        if status == axum::http::StatusCode::UNAUTHORIZED {
-            // RFC 6750 §3 — request Bearer authentication.
-            response.headers_mut().insert(
-                axum::http::header::WWW_AUTHENTICATE,
-                axum::http::HeaderValue::from_static("Bearer"),
-            );
-        }
-        response
-    }
-}
+/// HTTP-aware error wrapper. Re-exported from [`crate::api::error`] so
+/// call-sites can `use crate::error::ApiError` while the canonical
+/// definition lives next to the HTTP layer that owns it.
+pub use crate::api::error::{ApiError, ApiErrorBody};
 
 impl From<anyhow::Error> for AppError {
     fn from(err: anyhow::Error) -> Self {
