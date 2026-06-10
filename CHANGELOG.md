@@ -15,7 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `docs/api.md` — REST API reference.
 - `docs/mcp.md` — Model Context Protocol server reference.
 - `docs/cli.md` — `mnemos` command-line reference.
-- `examples/pages/` — three worked examples (concept, decision, recipe).
+- `examples/pages/` — four worked examples covering every `page_type`:
+  concept, decision, recipe, reference.
 - `examples/sources/karpathy-gist.md` — sample immutable source.
 
 ## [0.1.0] — TBD

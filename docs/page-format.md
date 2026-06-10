@@ -220,7 +220,8 @@ backlink. The semantics are:
 
 All examples below are real, validated pages shipped in `examples/pages/`.
 They use the same fields, the same body shape, and the same citation
-discipline the agent is expected to follow.
+discipline the agent is expected to follow. Together they cover every
+enum value of `page_type`.
 
 ### Concept page — `2026-04-17-llm-wiki.md`
 
@@ -238,6 +239,14 @@ discipline the agent is expected to follow.
 > Step-by-step: how to build a distroless image for a Rust binary and run
 > it via `docker-compose`. Numbered steps, copy-pasteable commands.
 > → See `examples/pages/2026-04-17-docker-recipe.md`.
+
+### Reference page — `2026-04-17-env-vars.md`
+
+> A pure lookup table: every `MNEMOS_*` environment variable, the
+> default, and the purpose, grouped by component (server, CLI, MCP
+> server, path defaults). The body is mostly tabular — synthesis is
+> confined to the "Conventions" and "Key points" sections.
+> → See `examples/pages/2026-04-17-env-vars.md`.
 
 ---
 

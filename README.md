@@ -47,3 +47,22 @@ curl http://localhost:8080/healthz
 
 The API, MCP, and CLI surfaces will be filled in by subsequent tasks.
 See the project scratchpad and `docs/` for the full roadmap.
+
+## Documentation
+
+User- and agent-facing documentation lives alongside the code:
+
+- [AGENTS.md](AGENTS.md) — read this if you are an LLM agent. The
+  schema for ingest, query, and maintain workflows.
+- [docs/page-format.md](docs/page-format.md) — frontmatter
+  reference, body structure, validation rules.
+- [docs/api.md](docs/api.md) — REST API endpoints, auth,
+  errors, curl examples.
+- [docs/mcp.md](docs/mcp.md) — MCP server, tools, resources,
+  client configuration for Claude Code, Cursor, etc.
+- [docs/cli.md](docs/cli.md) — every `mnemos` subcommand with
+  examples, env-var config, exit codes.
+- [examples/pages/](examples/pages/) — four worked pages covering
+  every `page_type` (concept, decision, recipe, reference) plus a
+  sample immutable source in `examples/sources/`.
+- [CHANGELOG.md](CHANGELOG.md) — release notes.
