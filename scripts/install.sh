@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 # mnemos one-line installer.
 #
-#   curl -fsSL https://raw.githubusercontent.com/OWNER/mnemos/main/scripts/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/deepfounder-ai/mnemos/main/scripts/install.sh | sh
 #
 # What it does:
 #   1. starts a mnemos container (pulls the published image, or builds from a
@@ -10,17 +10,17 @@
 #   3. registers a first user and prints its API key + the dashboard URL.
 #
 # Override any of these with environment variables:
-#   MNEMOS_IMAGE   container image           (default: ghcr.io/OWNER/mnemos:latest)
+#   MNEMOS_IMAGE   container image           (default: ghcr.io/deepfounder-ai/mnemos:latest)
 #   MNEMOS_PORT    host port to publish      (default: 8080)
 #   MNEMOS_USER    initial username          (default: me)
 #   MNEMOS_PASS    initial password          (default: a random 24-char string)
 #   MNEMOS_REPO    git URL for the build fallback
 set -eu
 
-IMAGE="${MNEMOS_IMAGE:-ghcr.io/OWNER/mnemos:latest}"
+IMAGE="${MNEMOS_IMAGE:-ghcr.io/deepfounder-ai/mnemos:latest}"
 PORT="${MNEMOS_PORT:-8080}"
 USER_NAME="${MNEMOS_USER:-me}"
-REPO="${MNEMOS_REPO:-https://github.com/OWNER/mnemos}"
+REPO="${MNEMOS_REPO:-https://github.com/deepfounder-ai/mnemos}"
 NAME="mnemos"
 
 say() { printf '\033[1;36m==>\033[0m %s\n' "$1"; }

@@ -37,18 +37,17 @@ One small Rust binary exposes the same memory over three surfaces:
 ### 1. One line (Docker)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/OWNER/mnemos/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/deepfounder-ai/mnemos/main/scripts/install.sh | sh
 ```
 
 Starts a container, waits until it is healthy, registers a first user, and
-prints your API key + dashboard URL. Replace `OWNER` with the GitHub
-owner/org. Override defaults with env vars (`MNEMOS_PORT`, `MNEMOS_USER`,
-`MNEMOS_IMAGE`, …).
+prints your API key + dashboard URL. Override defaults with env vars
+(`MNEMOS_PORT`, `MNEMOS_USER`, `MNEMOS_IMAGE`, …).
 
 ### 2. Docker Compose (from a clone)
 
 ```bash
-git clone https://github.com/OWNER/mnemos && cd mnemos
+git clone https://github.com/deepfounder-ai/mnemos && cd mnemos
 docker compose up -d --build
 curl http://localhost:8080/healthz
 ```
@@ -57,7 +56,7 @@ curl http://localhost:8080/healthz
 
 ```bash
 docker run -d --name mnemos -p 8080:8080 -v mnemos-data:/data \
-  ghcr.io/OWNER/mnemos:latest
+  ghcr.io/deepfounder-ai/mnemos:latest
 ```
 
 ### 4. From source (Rust 1.75+)
