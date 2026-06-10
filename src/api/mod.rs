@@ -1,39 +1,81 @@
-//! HTTP API (Axum). Phase 1 only exposes the health endpoint and a
-//! JSON 404/405 fallthrough; the rest of the surface lands in the
-//! `api/handlers` module during the API task.
+//! HTTP API (Axum). Mirrors `docs/api.md`: a public health probe + auth
+//! endpoints, and an authenticated `/api/v1` surface guarded by the
+//! `require_auth` middleware.
 
-use std::sync::Arc;
+pub mod dto;
+pub mod extract;
+pub mod handlers;
 
-use axum::extract::State;
-use axum::http::StatusCode;
-use axum::response::{IntoResponse, Response};
-use axum::routing::get;
-use axum::{Json, Router};
-use serde_json::json;
+use axum::routing::{delete, get, post};
+use axum::Router;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 
+use crate::auth::middleware::require_auth;
 use crate::config::Config;
 use crate::storage::AppState;
 
-/// Build the Axum router. Phase 1 = health + version + JSON fallthrough.
+/// Build the Axum router.
+///
+/// Routes split into three groups:
+/// - public: `/healthz`, `/api/v1/auth/{register,login}`
+/// - authenticated: everything else under `/api/v1`, behind `require_auth`.
 pub fn router(state: AppState) -> Router {
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
         .allow_headers(Any);
 
-    let api_v1 = Router::new()
-        // Phase-2 routes will be added here in the API task.
-        ;
+    // Authenticated routes. The `require_auth` middleware injects an
+    // `AuthContext` into request extensions, which handlers pull out via the
+    // `AuthContext` extractor.
+    let protected = Router::new()
+        .route("/auth/whoami", get(handlers::whoami))
+        .route(
+            "/auth/keys",
+            get(handlers::list_keys).post(handlers::create_key),
+        )
+        .route("/auth/keys/:id", delete(handlers::revoke_key))
+        .route(
+            "/pages",
+            get(handlers::list_pages).post(handlers::create_page),
+        )
+        .route(
+            "/pages/:slug",
+            get(handlers::get_page)
+                .put(handlers::update_page)
+                .delete(handlers::delete_page),
+        )
+        .route("/pages/:slug/raw", get(handlers::get_page_raw))
+        .route("/sources", get(handlers::list_sources))
+        .route("/sources/url", post(handlers::add_source_url))
+        .route("/sources/upload", post(handlers::upload_source))
+        .route("/sources/:id", get(handlers::get_source))
+        .route("/sources/:id/raw", get(handlers::get_source_raw))
+        .route("/search", get(handlers::search))
+        .route("/index", get(handlers::get_index))
+        .route("/log", get(handlers::get_log))
+        .route("/lint", get(handlers::lint))
+        .route_layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            require_auth,
+        ));
+
+    // Public auth routes (no middleware).
+    let public_auth = Router::new()
+        .route("/auth/register", post(handlers::register))
+        .route("/auth/login", post(handlers::login));
+
+    let api_v1 = public_auth.merge(protected);
 
     Router::new()
-        .route("/healthz", get(healthz))
+        .route("/", get(handlers::root))
+        .route("/healthz", get(handlers::healthz))
         .nest("/api/v1", api_v1)
         .fallback(not_found)
         .layer(TraceLayer::new_for_http())
         .layer(cors)
-        .with_state(Arc::new(state))
+        .with_state(state)
 }
 
 /// Run the HTTP server on the configured host:port.
@@ -45,19 +87,14 @@ pub async fn serve(state: AppState, config: &Config) -> std::io::Result<()> {
     axum::serve(listener, app).await
 }
 
-async fn healthz(State(_state): State<Arc<AppState>>) -> Response {
-    let body = json!({
-        "status": "ok",
-        "version": env!("CARGO_PKG_VERSION"),
-        "build_rev": crate::BUILD_REV,
-    });
-    (StatusCode::OK, Json(body)).into_response()
-}
-
-async fn not_found() -> Response {
+async fn not_found() -> axum::response::Response {
+    use axum::http::StatusCode;
+    use axum::response::IntoResponse;
     (
         StatusCode::NOT_FOUND,
-        Json(json!({ "code": "not_found", "message": "route not found" })),
+        axum::Json(serde_json::json!({
+            "error": { "code": "not_found", "message": "route not found" }
+        })),
     )
         .into_response()
 }

@@ -12,8 +12,7 @@ use crate::error::{AppError, Result};
 use crate::storage::{fs_layout, source_repo, AppState};
 
 /// Source service.
-#[derive(Clone)]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct SourceService {
     state: AppState,
     /// HTTP client used for URL fetches.
@@ -45,14 +44,9 @@ impl SourceService {
     }
 
     /// Fetch a URL and store the response body as a new source.
-    pub async fn register_url(
-        &self,
-        user_id: &str,
-        url: &str,
-        slug_input: &str,
-    ) -> Result<Source> {
-        let parsed = url::Url::parse(url)
-            .map_err(|e| AppError::Validation(format!("invalid url: {e}")))?;
+    pub async fn register_url(&self, user_id: &str, url: &str, slug_input: &str) -> Result<Source> {
+        let parsed =
+            url::Url::parse(url).map_err(|e| AppError::Validation(format!("invalid url: {e}")))?;
         if parsed.scheme() != "http" && parsed.scheme() != "https" {
             return Err(AppError::Validation(format!(
                 "unsupported url scheme: {}",
@@ -81,9 +75,7 @@ impl SourceService {
         let resp = self.http.get(parsed.clone()).send().await?;
         let status = resp.status();
         if !status.is_success() {
-            return Err(AppError::Validation(format!(
-                "fetch failed: HTTP {status}"
-            )));
+            return Err(AppError::Validation(format!("fetch failed: HTTP {status}")));
         }
 
         // Bound the response size to avoid OOM.
@@ -94,16 +86,12 @@ impl SourceService {
                 bytes.len()
             )));
         }
-        self.persist_bytes(user_id, &slug, "url", Some(url), &bytes).await
+        self.persist_bytes(user_id, &slug, "url", Some(url), &bytes)
+            .await
     }
 
     /// Store a raw payload (uploaded file) as a new source.
-    pub async fn upload(
-        &self,
-        user_id: &str,
-        slug_input: &str,
-        content: &[u8],
-    ) -> Result<Source> {
+    pub async fn upload(&self, user_id: &str, slug_input: &str, content: &[u8]) -> Result<Source> {
         if content.is_empty() {
             return Err(AppError::Validation("uploaded content is empty".into()));
         }
@@ -124,7 +112,8 @@ impl SourceService {
         }
         slug::validate(&slug)?;
 
-        self.persist_bytes(user_id, &slug, "upload", None, content).await
+        self.persist_bytes(user_id, &slug, "upload", None, content)
+            .await
     }
 
     /// List all sources for a user.
@@ -154,17 +143,15 @@ impl SourceService {
         let user_root = self.state.config.data_dir.join("users").join(user_id);
         // Defend against path traversal: `..` would escape `user_root`.
         let candidate = user_root.join(rel_path);
-        let normalised = candidate
-            .components()
-            .fold(PathBuf::new(), |mut acc, c| {
-                match c {
-                    std::path::Component::ParentDir => {
-                        acc.pop();
-                    }
-                    other => acc.push(other.as_os_str()),
+        let normalised = candidate.components().fold(PathBuf::new(), |mut acc, c| {
+            match c {
+                std::path::Component::ParentDir => {
+                    acc.pop();
                 }
-                acc
-            });
+                other => acc.push(other.as_os_str()),
+            }
+            acc
+        });
         if normalised.starts_with(&user_root) {
             normalised
         } else {

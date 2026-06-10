@@ -69,7 +69,10 @@ mod tests {
     #[test]
     fn layout_is_stable() {
         let root = Path::new("/tmp/mnemos-test");
-        assert_eq!(user_dir(root, "u1"), PathBuf::from("/tmp/mnemos-test/users/u1"));
+        assert_eq!(
+            user_dir(root, "u1"),
+            PathBuf::from("/tmp/mnemos-test/users/u1")
+        );
         assert_eq!(
             pages_dir(root, "u1"),
             PathBuf::from("/tmp/mnemos-test/users/u1/pages")

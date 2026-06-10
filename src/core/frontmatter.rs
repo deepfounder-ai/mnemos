@@ -215,7 +215,10 @@ related: [event-streaming]
         assert_eq!(fm.sources.len(), 2);
         assert_eq!(fm.sources[0].kind, SourceKind::Url);
         assert_eq!(fm.sources[0].ref_, "sources/abc-kafka.md");
-        assert_eq!(fm.sources[0].origin.as_deref(), Some("https://kafka.apache.org"));
+        assert_eq!(
+            fm.sources[0].origin.as_deref(),
+            Some("https://kafka.apache.org")
+        );
         assert_eq!(fm.related, vec!["event-streaming"]);
         assert_eq!(fm.page_type, Some(PageType::Concept));
     }

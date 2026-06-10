@@ -29,7 +29,9 @@ impl std::fmt::Debug for SearchService {
 
 impl SearchService {
     pub fn new(state: &AppState) -> Self {
-        Self { pool: state.db.clone() }
+        Self {
+            pool: state.db.clone(),
+        }
     }
 
     /// Run a FTS5 query against `pages_fts` for a single user. Hits are
@@ -49,15 +51,16 @@ impl SearchService {
         // If the user already used FTS5 operators (AND, OR, NEAR, ...), pass
         // the query through verbatim. Otherwise, treat whitespace-separated
         // tokens as OR-joined terms.
-        let fts_query = if q.contains('"') || q.contains(':') || q.contains(" AND ") || q.contains(" OR ") {
-            q.to_string()
-        } else {
-            let terms: Vec<String> = q
-                .split_whitespace()
-                .map(|t| format!("\"{}\"", t.replace('"', "\"\"")))
-                .collect();
-            terms.join(" OR ")
-        };
+        let fts_query =
+            if q.contains('"') || q.contains(':') || q.contains(" AND ") || q.contains(" OR ") {
+                q.to_string()
+            } else {
+                let terms: Vec<String> = q
+                    .split_whitespace()
+                    .map(|t| format!("\"{}\"", t.replace('"', "\"\"")))
+                    .collect();
+                terms.join(" OR ")
+            };
 
         let limit = limit.clamp(1, 1000);
 

@@ -22,13 +22,18 @@ mnemos.db-shm
 *.swo
 *~
 
-# mavis / opencode
+# Agent / editor tooling scratch
 .mavis/
 .opencode/
+.venv-validate/
+.claude/
 
 # Logs
 *.log
 
-# Env files
+# Env files & secrets
 .env
 .env.local
+# Local MCP wiring — contains a machine-specific path + plaintext API key.
+.mcp.json
+.mcp.json.bak

@@ -20,12 +20,7 @@ impl LogBuilder {
     }
 
     /// Append a single event to the on-disk log.
-    pub async fn append(
-        &self,
-        user_id: &str,
-        kind: &str,
-        ref_: Option<&str>,
-    ) -> Result<()> {
+    pub async fn append(&self, user_id: &str, kind: &str, ref_: Option<&str>) -> Result<()> {
         fs_layout::ensure_user_dirs(&self.state.config.data_dir, user_id)?;
         let path = fs_layout::log_path(&self.state.config.data_dir, user_id);
         let line = format_log_line(Utc::now(), kind, ref_);
@@ -54,7 +49,10 @@ impl LogBuilder {
     pub async fn rebuild(&self, user_id: &str) -> Result<usize> {
         fs_layout::ensure_user_dirs(&self.state.config.data_dir, user_id)?;
         let path = fs_layout::log_path(&self.state.config.data_dir, user_id);
-        let filter = event_repo::EventFilter { limit: Some(10_000), ..Default::default() };
+        let filter = event_repo::EventFilter {
+            limit: Some(10_000),
+            ..Default::default()
+        };
         let events = event_repo::list_for_user(&self.state.db, user_id, &filter).await?;
         let mut buf = String::new();
         // oldest first in the file, so reverse.

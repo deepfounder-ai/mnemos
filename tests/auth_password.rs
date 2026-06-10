@@ -7,7 +7,10 @@ fn hash_is_argon2id() {
     let h = hash_password("hunter2").expect("hash");
     // PHC strings start with $argon2id$ for the default Argon2 algorithm.
     assert!(h.starts_with("$argon2"), "expected argon2 PHC, got: {h}");
-    assert!(h.contains("$argon2id$") || h.contains("$argon2i$"), "got: {h}");
+    assert!(
+        h.contains("$argon2id$") || h.contains("$argon2i$"),
+        "got: {h}"
+    );
 }
 
 #[test]

@@ -1,68 +1,177 @@
 # mnemos
 
-Cloud memory for AI agents — a persistent, compounding knowledge layer
-inspired by [Andrej Karpathy's LLM Wiki
-pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f).
+**Cloud memory for AI agents** — a persistent, multi-tenant knowledge layer
+your agents read from and write to. Inspired by
+[Andrej Karpathy's LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f).
 
-> *The service is dumb storage + search. The LLM agent does the smart
-> work: it reads raw sources, synthesises them into markdown pages, and
-> the wiki compounds over time.*
+One small Rust binary exposes the same memory over three surfaces:
 
-## Phase 1 — Foundation
+- **REST API** (`axum`) — for apps and automation.
+- **MCP server** (stdio) — the native interface for LLM agents (Claude Code,
+  Cursor, …).
+- **CLI** (`clap`) — for humans and scripts.
 
-This commit establishes the foundational scaffold:
+> The service is intentionally **dumb storage + search**. The intelligence is
+> the agent's: it reads raw sources, synthesises them into short markdown
+> *pages*, links them with typed `related:` edges, and the wiki compounds
+> over time.
 
-- Cargo workspace (binary `mnemos` + library for reuse)
-- SQLite schema with FTS5 search, migrations, and indexes
-- Domain core: pages, sources, frontmatter, index/log builders, search, lint
-- Auth: argon2 passwords, SHA-256-hashed API keys, Axum middleware
-- HTTP API scaffold (healthz endpoint, JSON 404)
-- MCP stub (stdio)
-- CLI surface (clap) with `serve`, `mcp`, and stub subcommands
-- Unit + integration tests
+---
+
+## Features
+
+- 📚 **Pages** — markdown + YAML frontmatter, one compressed claim per page.
+- 🔗 **Graph** — typed `related:` edges between pages.
+- 📎 **Sources** — immutable URL fetches and file uploads, cited by id.
+- 🔎 **Search** — SQLite **FTS5** with BM25 ranking.
+- 🧹 **Lint** — finds orphans, broken links, missing source refs.
+- 🧾 **Audit log** — every mutation is recorded, per user.
+- 🔐 **Multi-tenant** — per-user isolation; argon2 passwords + SHA-256-hashed
+  `mnemo_…` API keys.
+- 🦀 Single static-ish binary, SQLite-backed, no external services.
+
+---
 
 ## Quick start
 
+### 1. One line (Docker)
+
 ```bash
-cargo build --release
-./target/release/mnemos --version
-./target/release/mnemos serve
-# in another shell:
+curl -fsSL https://raw.githubusercontent.com/OWNER/mnemos/main/scripts/install.sh | sh
+```
+
+Starts a container, waits until it is healthy, registers a first user, and
+prints your API key + dashboard URL. Replace `OWNER` with the GitHub
+owner/org. Override defaults with env vars (`MNEMOS_PORT`, `MNEMOS_USER`,
+`MNEMOS_IMAGE`, …).
+
+### 2. Docker Compose (from a clone)
+
+```bash
+git clone https://github.com/OWNER/mnemos && cd mnemos
+docker compose up -d --build
 curl http://localhost:8080/healthz
 ```
 
+### 3. Plain `docker run`
+
+```bash
+docker run -d --name mnemos -p 8080:8080 -v mnemos-data:/data \
+  ghcr.io/OWNER/mnemos:latest
+```
+
+### 4. From source (Rust 1.75+)
+
+```bash
+cargo build --release
+./target/release/mnemos serve            # http://0.0.0.0:8080
+```
+
+Open <http://localhost:8080/> in a browser for a dashboard with copy-paste
+connection instructions — including a ready-made prompt you can hand to an
+LLM so it connects itself.
+
+---
+
+## First steps
+
+```bash
+# point the CLI at your server
+export MNEMOS_API_URL=http://localhost:8080
+
+# register (prints an API key once — save it)
+mnemos user register alice --password-stdin <<< 'correct horse battery staple'
+export MNEMOS_API_KEY=mnemo_…
+
+# write and recall memory
+mnemos pages create llm-wiki --from-file ./page.md
+mnemos search "vector search"
+mnemos pages get llm-wiki
+mnemos lint
+```
+
+The same operations are available over REST (`docs/api.md`) and MCP
+(`docs/mcp.md`).
+
+---
+
+## Connect an LLM agent (MCP)
+
+mnemos runs an MCP server **in-process** against the same store, so the REST
+server is not required. Point your host at `mnemos mcp`:
+
+```json
+{
+  "mcpServers": {
+    "mnemos": {
+      "command": "mnemos",
+      "args": ["mcp"],
+      "env": {
+        "MNEMOS_DATA_DIR": "/path/to/mnemos/data",
+        "MNEMOS_API_KEY": "mnemo_…"
+      }
+    }
+  }
+}
+```
+
+Tools: `list_pages`, `get_page`, `create_page`, `update_page`, `delete_page`,
+`search_pages`, `list_sources`, `get_source`, `add_source_url`,
+`upload_source`, `get_index`, `get_log`, `lint`. Resources: `mnemos://index`,
+`mnemos://log`, `mnemos://page/{slug}`, `mnemos://source/{id}`.
+
+---
+
 ## Configuration (env)
 
-| Variable                  | Default            | Purpose                              |
-| ------------------------- | ------------------ | ------------------------------------ |
-| `MNEMOS_HOST`             | `0.0.0.0`          | HTTP bind host                       |
-| `MNEMOS_PORT`             | `8080`             | HTTP bind port                       |
-| `MNEMOS_DATA_DIR`         | `./data`           | SQLite file + per-user on-disk data  |
-| `MNEMOS_DB_URL`           | (auto)             | SQLx connection string               |
-| `MNEMOS_LOG`              | `info`             | tracing-subscriber filter            |
-| `MNEMOS_MAX_SOURCE_BYTES` | `10485760` (10MB)  | Max URL/upload source size           |
-| `MNEMOS_SOURCE_TIMEOUT`   | `30`               | URL fetch timeout in seconds         |
+| Variable                     | Default            | Purpose                              |
+| ---------------------------- | ------------------ | ------------------------------------ |
+| `MNEMOS_HOST`                | `0.0.0.0`          | HTTP bind host                       |
+| `MNEMOS_PORT`                | `8080`             | HTTP bind port                       |
+| `MNEMOS_DATA_DIR`            | `./data`           | SQLite file + per-user on-disk data  |
+| `MNEMOS_DB_URL`              | (auto)             | SQLx connection string override      |
+| `MNEMOS_LOG` / `RUST_LOG`    | `info`             | `tracing-subscriber` filter          |
+| `MNEMOS_MAX_SOURCE_BYTES`    | `10485760` (10 MB) | Max URL/upload source size           |
+| `MNEMOS_SOURCE_TIMEOUT_SECS` | `30`               | URL fetch timeout, seconds           |
 
-## Status
+CLI-only: `MNEMOS_API_URL` (default `http://localhost:8080`) and
+`MNEMOS_API_KEY` select the server the CLI talks to.
 
-The API, MCP, and CLI surfaces will be filled in by subsequent tasks.
-See the project scratchpad and `docs/` for the full roadmap.
+---
+
+## Develop
+
+```bash
+cargo test            # unit + integration (API, MCP-over-stdio, CLI e2e)
+cargo clippy --all-targets
+cargo fmt
+```
+
+Layered architecture (each layer depends only on those below):
+
+```
+cli / mcp / api  (transport)
+        │
+      core        (page, source, frontmatter, index, log, search, lint)
+        │
+  storage (sqlx + fs) · auth (users, api keys, middleware)
+        │
+   error · config
+```
+
+---
 
 ## Documentation
 
-User- and agent-facing documentation lives alongside the code:
-
-- [AGENTS.md](AGENTS.md) — read this if you are an LLM agent. The
-  schema for ingest, query, and maintain workflows.
-- [docs/page-format.md](docs/page-format.md) — frontmatter
-  reference, body structure, validation rules.
-- [docs/api.md](docs/api.md) — REST API endpoints, auth,
-  errors, curl examples.
-- [docs/mcp.md](docs/mcp.md) — MCP server, tools, resources,
-  client configuration for Claude Code, Cursor, etc.
-- [docs/cli.md](docs/cli.md) — every `mnemos` subcommand with
-  examples, env-var config, exit codes.
-- [examples/pages/](examples/pages/) — four worked pages covering
-  every `page_type` (concept, decision, recipe, reference) plus a
-  sample immutable source in `examples/sources/`.
+- [AGENTS.md](AGENTS.md) — **read this if you are an LLM agent**: the ingest /
+  query / maintain workflow contract.
+- [docs/page-format.md](docs/page-format.md) — frontmatter + body spec.
+- [docs/api.md](docs/api.md) — REST endpoints, auth, errors, curl examples.
+- [docs/mcp.md](docs/mcp.md) — MCP tools, resources, host configuration.
+- [docs/cli.md](docs/cli.md) — every subcommand, env config, exit codes.
+- [examples/](examples/) — worked pages (one per `page_type`) + a sample source.
 - [CHANGELOG.md](CHANGELOG.md) — release notes.
+
+## License
+
+[MIT](LICENSE).

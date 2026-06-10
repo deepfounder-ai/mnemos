@@ -143,7 +143,10 @@ impl Linter {
                     severity: Severity::Info,
                     kind: FindingKind::Orphan,
                     ref_: row.slug.clone(),
-                    message: format!("page '{}' has no related links and is not referenced", row.slug),
+                    message: format!(
+                        "page '{}' has no related links and is not referenced",
+                        row.slug
+                    ),
                 });
             }
         }
