@@ -23,7 +23,7 @@ async-trait = "0.1"
 futures = "0.3"
 
 # HTTP
-axum = { version = "0.7", features = ["macros", "multipart"] }
+axum = { version = "0.8", features = ["macros", "multipart"] }
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["cors", "trace"] }
 hyper = "1"
