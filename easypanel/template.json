@@ -1,0 +1,69 @@
+{
+  "$schema": "https://schema.easypanel.io/template.json",
+  "name": "mnemos",
+  "description": "Cloud memory for AI agents — a persistent wiki of markdown pages + immutable sources, with FTS5 search, a typed related-graph, and an append-only log. Exposed over REST, MCP (stdio), and a CLI. Multi-tenant, single-binary, SQLite-backed.",
+  "logo": "https://raw.githubusercontent.com/deepfounder-ai/mnemos/main/docs/logo.png",
+  "links": [
+    { "label": "GitHub", "url": "https://github.com/deepfounder-ai/mnemos" },
+    { "label": "Docs", "url": "https://github.com/deepfounder-ai/mnemos/tree/main/docs" }
+  ],
+  "instructions": "After deploy:\n1. Open the service URL to get the setup prompt.\n2. Register a user: POST /api/v1/auth/register {\"username\":\"you\",\"password\":\"...\"} → save the api_key.\n3. On your laptop: MNEMOS_API_KEY=<key> mnemos setup  (registers the MCP server with Claude Code automatically).\n4. Reload Claude Code — the mnemos MCP tools appear immediately.",
+  "form": [
+    {
+      "type": "input",
+      "label": "Project Name",
+      "field": "projectName",
+      "default": "mnemos",
+      "required": true
+    },
+    {
+      "type": "input",
+      "label": "App Service Name",
+      "field": "appServiceName",
+      "default": "app",
+      "required": true
+    },
+    {
+      "type": "input",
+      "label": "Log Level",
+      "field": "logLevel",
+      "default": "info",
+      "required": false
+    }
+  ],
+  "services": [
+    {
+      "type": "app",
+      "data": {
+        "projectName": "{{projectName}}",
+        "serviceName": "{{appServiceName}}",
+        "source": {
+          "type": "image",
+          "image": "ghcr.io/deepfounder-ai/mnemos:latest"
+        },
+        "env": "MNEMOS_HOST=0.0.0.0\nMNEMOS_PORT=8080\nMNEMOS_DATA_DIR=/data\nMNEMOS_LOG={{logLevel}}",
+        "proxy": {
+          "port": 8080,
+          "secure": true
+        },
+        "mounts": [
+          {
+            "type": "volume",
+            "name": "data",
+            "mountPath": "/data"
+          }
+        ],
+        "deploy": {
+          "replicas": 1,
+          "command": null,
+          "zeroDowntime": true
+        },
+        "healthCheck": {
+          "enabled": true,
+          "path": "/healthz",
+          "port": 8080
+        }
+      }
+    }
+  ]
+}

@@ -34,7 +34,15 @@ One small Rust binary exposes the same memory over three surfaces:
 
 ## Quick start
 
-### 1. One line (Docker)
+### 1. EasyPanel (one click)
+
+[![Deploy on EasyPanel](https://easypanel.io/img/deploy-on-easypanel.svg)](https://easypanel.io/docs/templates/mnemos)
+
+Or use the template directly: **Services → New Service → Template → search "mnemos"**.
+
+After deploy, open the service URL — the landing page walks you through registering a user and connecting Claude Code with `mnemos setup`.
+
+### 2. One line (Docker)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/deepfounder-ai/mnemos/main/scripts/install.sh | sh
