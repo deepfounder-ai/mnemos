@@ -17,7 +17,8 @@
 use axum::routing::{delete, get, post};
 use axum::Router;
 use tower_http::cors::{Any, CorsLayer};
-use tower_http::trace::TraceLayer;
+use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
+use tracing::Level;
 
 use crate::api::handlers;
 use crate::auth::middleware::require_auth;
@@ -82,7 +83,14 @@ pub fn router(state: AppState) -> Router {
         )
         .nest("/api/v1", api_v1)
         .fallback(not_found)
-        .layer(TraceLayer::new_for_http())
+        .layer(
+            // Per-request access logs at INFO so a running container is not
+            // silent: one span (method + path) + one line on response with
+            // status and latency. Bump MNEMOS_LOG=tower_http=debug for headers.
+            TraceLayer::new_for_http()
+                .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
+                .on_response(DefaultOnResponse::new().level(Level::INFO)),
+        )
         .layer(cors)
         .layer(axum::extract::DefaultBodyLimit::max(
             crate::api::dto::MAX_BODY_BYTES,
