@@ -9,6 +9,11 @@ WORKDIR /app
 # Prime the dependency cache: copy manifests first, build a dummy target, then
 # copy the real sources. This keeps `cargo build` cached across source-only
 # changes.
+# Limit parallelism so the build fits in low-memory environments (e.g. EasyPanel).
+# CARGO_BUILD_JOBS can be overridden at build time: --build-arg CARGO_BUILD_JOBS=4
+ARG CARGO_BUILD_JOBS=2
+ENV CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS}
+
 COPY Cargo.toml Cargo.lock ./
 RUN mkdir -p src \
     && echo 'fn main() {}' > src/main.rs \
