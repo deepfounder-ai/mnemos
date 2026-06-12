@@ -40,7 +40,16 @@ One small Rust binary exposes the same memory over three surfaces:
 
 Or use the template directly: **Services → New Service → Template → search "mnemos"**.
 
-After deploy, open the service URL — the landing page walks you through registering a user and connecting Claude Code with `mnemos setup`.
+> ⚠️ **Persistence — required.** mnemos stores everything in SQLite under
+> `/data`. The template mounts a volume there automatically. If you create the
+> service **manually** instead of from the template, you MUST add the volume
+> yourself BEFORE first use:
+> **Storage → Add Volume → Name `mnemos-data`, Mount path `/data` → Save → Redeploy.**
+> Without it, data lives in the container's ephemeral layer and **every
+> redeploy wipes it**. Adding the volume *after* data exists mounts an empty
+> volume and erases it — back up first (`GET /api/v1/pages/{slug}/raw`).
+
+After deploy, open the service URL — the landing page walks you through registering a user and connecting Claude Code.
 
 ### 2. One line (Docker)
 
@@ -52,7 +61,7 @@ Starts a container, waits until it is healthy, registers a first user, and
 prints your API key + dashboard URL. Override defaults with env vars
 (`MNEMOS_PORT`, `MNEMOS_USER`, `MNEMOS_IMAGE`, …).
 
-### 2. Docker Compose (from a clone)
+### 3. Docker Compose (from a clone)
 
 ```bash
 git clone https://github.com/deepfounder-ai/mnemos && cd mnemos
@@ -60,14 +69,18 @@ docker compose up -d --build
 curl http://localhost:8080/healthz
 ```
 
-### 3. Plain `docker run`
+### 4. Plain `docker run`
 
 ```bash
 docker run -d --name mnemos -p 8080:8080 -v mnemos-data:/data \
   ghcr.io/deepfounder-ai/mnemos:latest
 ```
 
-### 4. From source (Rust 1.75+)
+The `-v mnemos-data:/data` is **required** — it persists the SQLite store
+across restarts and redeploys. Drop it and all pages/users vanish when the
+container is recreated.
+
+### 5. From source (latest stable Rust)
 
 ```bash
 cargo build --release
