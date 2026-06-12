@@ -8,31 +8,28 @@
 FROM rust:1-bookworm AS builder
 WORKDIR /app
 
-# Prime the dependency cache: copy manifests first, build a dummy target, then
-# copy the real sources. This keeps `cargo build` cached across source-only
-# changes.
-# Memory-efficient build settings for servers with limited RAM (e.g. EasyPanel).
-# These override Cargo.toml profile settings:
-#   - lto=off: skip link-time optimization (saves ~1-2GB peak RAM)
-#   - codegen-units=16: split into smaller units compiled one at a time
-#   - jobs=1: only one unit in flight at a time (lowest peak RAM)
-# Override: --build-arg CARGO_BUILD_JOBS=4 --build-arg RUSTFLAGS=""
-ARG CARGO_BUILD_JOBS=1
-ENV CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS}
-ARG RUSTFLAGS="-C lto=off -C codegen-units=16"
+# Skip link-time optimization to keep peak linker RAM modest (saves ~1-2GB)
+# without serializing compilation. Compilation parallelism stays at the default
+# (all cores), so the build is fast. On a RAM-starved builder, pass
+# --build-arg RUSTFLAGS="-C lto=off -C codegen-units=16" and
+# CARGO_BUILD_JOBS via the environment to trade speed for lower peak memory.
+ARG RUSTFLAGS="-C lto=off"
 ENV RUSTFLAGS=${RUSTFLAGS}
 
-COPY Cargo.toml Cargo.lock ./
-RUN mkdir -p src \
-    && echo 'fn main() {}' > src/main.rs \
-    && echo '' > src/lib.rs \
-    && cargo build --release --locked --quiet || true \
-    && rm -rf src
+# Optional cap on compile parallelism. Leave empty for cargo's default
+# (all cores). On a low-RAM builder, pass --build-arg CARGO_JOBS=2 so parallel
+# rustc processes don't exhaust memory and produce truncated rlibs.
+ARG CARGO_JOBS=""
 
+# Build from the full sources in one shot. A previous version used the
+# "dummy main.rs to cache deps" trick, but it silently shipped the empty stub
+# binary (cargo skipped the real rebuild when Docker COPY backdated mtimes),
+# producing a container that started and immediately exited 0. A single honest
+# build is slower without a warm cache but always correct. BuildKit layer
+# caching still skips this step entirely when nothing changed.
 COPY . .
-# Touch sources so cargo rebuilds them after the dummy build above.
-RUN cargo build --release --locked \
-    && strip target/release/mnemos || true
+RUN cargo build --release --locked ${CARGO_JOBS:+-j ${CARGO_JOBS}} \
+    && strip target/release/mnemos
 
 # ---- runtime stage ---------------------------------------------------------
 FROM debian:bookworm-slim AS runtime
