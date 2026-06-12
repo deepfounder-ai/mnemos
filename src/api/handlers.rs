@@ -3,11 +3,12 @@
 //! shape the response to match `docs/api.md`. Domain errors flow back as
 //! [`AppError`] and are mapped to [`ApiError`] by the `?` operator.
 
+use axum::body::Bytes;
 use axum::extract::{Multipart, Path, Query, State};
-use axum::http::{header, StatusCode};
+use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
-use serde_json::json;
+use serde_json::{json, Value};
 
 use crate::api::dto::*;
 use crate::auth::middleware::AuthContext;
@@ -690,6 +691,113 @@ fn markdown(body: String) -> Response {
 
 fn unprocessable(msg: String) -> AppError {
     AppError::Unprocessable(msg)
+}
+
+// ---------------------------------------------------------------------------
+// Remote MCP (Streamable HTTP transport)
+// ---------------------------------------------------------------------------
+
+/// `POST /mcp` — remote MCP endpoint speaking JSON-RPC 2.0 over HTTP, so MCP
+/// clients (Claude Code `--transport http`, the Claude API `mcp_servers`
+/// field, etc.) can connect without installing the binary.
+///
+/// Auth is a plain `Authorization: Bearer mnemo_…` API key — the same key the
+/// REST API uses. The request is dispatched through the shared MCP tool layer
+/// ([`crate::mcp::server::handle_message`]) against a loopback REST client
+/// carrying the caller's key, so every tool runs scoped to that user.
+///
+/// Accepts a single JSON-RPC object or a batch array. Notifications (no `id`)
+/// produce no response: a lone notification yields `202 Accepted`.
+pub async fn mcp_endpoint(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    let token = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer ").or_else(|| v.strip_prefix("bearer ")))
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+
+    let Some(token) = token else {
+        return (
+            StatusCode::UNAUTHORIZED,
+            [(header::WWW_AUTHENTICATE, "Bearer")],
+            Json(json!({
+                "jsonrpc": "2.0",
+                "id": Value::Null,
+                "error": { "code": -32001, "message": "expected Authorization: Bearer mnemo_…" }
+            })),
+        )
+            .into_response();
+    };
+
+    let request: Value = match serde_json::from_slice(&body) {
+        Ok(v) => v,
+        Err(e) => {
+            return Json(json!({
+                "jsonrpc": "2.0",
+                "id": Value::Null,
+                "error": { "code": -32700, "message": format!("parse error: {e}") }
+            }))
+            .into_response();
+        }
+    };
+
+    // Loopback REST client carrying the caller's key. 0.0.0.0 isn't a valid
+    // connect target, so dial localhost in that case.
+    let host = if state.config.host == "0.0.0.0" || state.config.host.is_empty() {
+        "127.0.0.1"
+    } else {
+        state.config.host.as_str()
+    };
+    let base = format!("http://{host}:{}", state.config.port);
+    let client = match crate::mcp::McpRestClient::new(base, token) {
+        Ok(c) => c,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "jsonrpc": "2.0",
+                    "id": Value::Null,
+                    "error": { "code": -32603, "message": format!("mcp client: {e}") }
+                })),
+            )
+                .into_response();
+        }
+    };
+
+    if let Some(items) = request.as_array() {
+        let mut out = Vec::with_capacity(items.len());
+        for item in items {
+            if let Some(resp) = crate::mcp::server::handle_message(item, &client).await {
+                out.push(resp);
+            }
+        }
+        if out.is_empty() {
+            return StatusCode::ACCEPTED.into_response();
+        }
+        return Json(Value::Array(out)).into_response();
+    }
+
+    match crate::mcp::server::handle_message(&request, &client).await {
+        Some(resp) => Json(resp).into_response(),
+        None => StatusCode::ACCEPTED.into_response(),
+    }
+}
+
+/// `GET /mcp` — we don't offer server-initiated SSE streams; the transport is
+/// request/response over POST. Tell probing clients so explicitly.
+pub async fn mcp_endpoint_get() -> Response {
+    (
+        StatusCode::METHOD_NOT_ALLOWED,
+        [(header::ALLOW, "POST")],
+        Json(json!({
+            "error": { "code": "method_not_allowed", "message": "MCP JSON-RPC uses POST" }
+        })),
+    )
+        .into_response()
 }
 
 /// Length-aware constant-time byte comparison. Avoids early-exit on the first

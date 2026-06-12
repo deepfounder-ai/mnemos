@@ -76,6 +76,10 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/", get(handlers::root))
         .route("/healthz", get(handlers::healthz))
+        .route(
+            "/mcp",
+            post(handlers::mcp_endpoint).get(handlers::mcp_endpoint_get),
+        )
         .nest("/api/v1", api_v1)
         .fallback(not_found)
         .layer(TraceLayer::new_for_http())

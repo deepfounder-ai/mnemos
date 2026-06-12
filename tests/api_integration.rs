@@ -146,6 +146,63 @@ async fn registration_secret_gates_signup() {
 }
 
 #[tokio::test]
+async fn mcp_http_initialize_and_tools_list() {
+    let s = TestServer::start().await;
+
+    // No bearer -> 401 with a JSON-RPC error envelope.
+    let resp = s
+        .http
+        .post(s.url("/mcp"))
+        .json(&json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 401);
+
+    let key = s.register("mcpuser").await;
+
+    // initialize -> serverInfo + capabilities.
+    let resp = s
+        .http
+        .post(s.url("/mcp"))
+        .bearer_auth(&key)
+        .json(&json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let body: Value = resp.json().await.unwrap();
+    assert_eq!(body["jsonrpc"], "2.0");
+    assert_eq!(body["result"]["serverInfo"]["name"], "mnemos");
+    assert!(body["result"]["capabilities"]["tools"].is_object());
+
+    // tools/list -> non-empty catalog including create_page.
+    let resp = s
+        .http
+        .post(s.url("/mcp"))
+        .bearer_auth(&key)
+        .json(&json!({ "jsonrpc": "2.0", "id": 2, "method": "tools/list" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let body: Value = resp.json().await.unwrap();
+    let tools = body["result"]["tools"].as_array().expect("tools array");
+    assert!(tools.iter().any(|t| t["name"] == "create_page"));
+
+    // A bare notification (no id) -> 202 Accepted, no body.
+    let resp = s
+        .http
+        .post(s.url("/mcp"))
+        .bearer_auth(&key)
+        .json(&json!({ "jsonrpc": "2.0", "method": "notifications/initialized" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 202);
+}
+
+#[tokio::test]
 async fn missing_auth_returns_nested_envelope_and_www_authenticate() {
     let s = TestServer::start().await;
     let resp = s.http.get(s.url("/api/v1/pages")).send().await.unwrap();
