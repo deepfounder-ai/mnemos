@@ -38,16 +38,21 @@ RUN cargo build --release --locked \
 FROM debian:bookworm-slim AS runtime
 
 # ca-certificates lets `add_source_url` reach https origins; curl powers the
-# container HEALTHCHECK. Everything else is stripped.
+# container HEALTHCHECK; gosu drops privileges in the entrypoint. Everything
+# else is stripped.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl \
+    && apt-get install -y --no-install-recommends ca-certificates curl gosu \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --system --uid 10001 --create-home --home-dir /home/mnemos mnemos \
     && mkdir -p /data && chown mnemos:mnemos /data
 
 COPY --from=builder /app/target/release/mnemos /usr/local/bin/mnemos
+COPY scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-USER mnemos
+# NOTE: we intentionally run as root so the entrypoint can fix ownership of a
+# host-mounted data dir, then step down to `mnemos` via gosu. The server
+# process itself never runs as root.
 ENV MNEMOS_HOST=0.0.0.0 \
     MNEMOS_PORT=8080 \
     MNEMOS_DATA_DIR=/data \
@@ -58,5 +63,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=3s --start-period=5s --retries=3 \
     CMD curl -fsS http://127.0.0.1:8080/healthz || exit 1
 
-ENTRYPOINT ["mnemos"]
+ENTRYPOINT ["docker-entrypoint.sh", "mnemos"]
 CMD ["serve"]
