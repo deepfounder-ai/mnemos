@@ -3,7 +3,9 @@
 # ---- build stage -----------------------------------------------------------
 # Full rust image: it ships gcc, which `libsqlite3-sys` (bundled SQLite)
 # needs to compile.
-FROM rust:1.85-bookworm AS builder
+# Latest stable rust: transitive deps (icu_* via idna) bump their MSRV
+# frequently; tracking stable avoids whack-a-mole pinning.
+FROM rust:1-bookworm AS builder
 WORKDIR /app
 
 # Prime the dependency cache: copy manifests first, build a dummy target, then
