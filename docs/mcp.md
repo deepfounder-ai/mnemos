@@ -11,35 +11,36 @@ available.
 
 ## Transport
 
-**stdio only.** The server reads newline-delimited JSON-RPC 2.0 messages
-from stdin and writes responses to stdout. Logging goes to stderr so it
-does not pollute the protocol stream.
+Two transports, same JSON-RPC 2.0 surface:
 
-Typical launch:
+- **Remote HTTP** — the REST server exposes `POST /mcp` (Streamable HTTP).
+  A client connects directly to the URL with a Bearer API key; no binary is
+  installed. `GET /mcp` returns 405 (request/response over POST, no
+  server-initiated SSE).
+- **Local stdio** — `mnemos mcp` reads newline-delimited JSON-RPC from stdin
+  and writes responses to stdout (logging to stderr). It is a thin client: it
+  forwards every call to a REST API over HTTP.
 
 ```bash
-mnemos mcp
+mnemos mcp   # stdio transport
 ```
-
-The MCP server runs **in-process**: it opens the same SQLite + filesystem
-store the REST server uses, directly — there is no upstream HTTP hop. It is
-configured by environment variables (below), like any other MCP process in
-your host.
 
 ---
 
 ## Authentication
 
-The server needs two environment variables when spawned:
+**Remote HTTP (`POST /mcp`):** send `Authorization: Bearer mnemo_…` — the same
+API key the REST API uses. Every call runs scoped to that key's user.
 
-- `MNEMOS_DATA_DIR` — the data directory of the store to serve (must match the
-  REST server's, default `./data`).
-- `MNEMOS_API_KEY` — an API key (`mnemo_…`); the server resolves it against
-  that store to pick the user whose namespace it serves.
+**Local stdio (`mnemos mcp`):** the process reads two environment variables:
 
-`MNEMOS_API_URL` is **not** used by the MCP server (it only matters to the
-REST/CLI HTTP client). The key is resolved once at startup; rotate it by
-restarting the process with a new `MNEMOS_API_KEY`.
+- `MNEMOS_API_URL` — base URL of the REST API to proxy to (default
+  `http://127.0.0.1:8080`).
+- `MNEMOS_API_KEY` — an API key (`mnemo_…`) sent as the Bearer token on every
+  forwarded request.
+
+The key is read once at startup; rotate it by restarting the process with a
+new `MNEMOS_API_KEY`.
 
 ---
 
@@ -201,8 +202,27 @@ Do not rely on these in v0.1.
 
 ## Connecting from popular hosts
 
-The configuration shape is `"command"` + `"args"` + `"env"`. Below are
-worked examples for the most common hosts.
+Two transports are available:
+
+- **Remote HTTP** — the server exposes `POST /mcp` (JSON-RPC, Streamable
+  HTTP). Best for a hosted instance; no binary needed.
+- **Local stdio** — `mnemos mcp` spawns a stdio server that proxies to a REST
+  API via `MNEMOS_API_URL` + `MNEMOS_API_KEY`.
+
+### Remote HTTP (hosted server)
+
+```bash
+claude mcp add --transport http --scope user mnemos \
+  https://your-host/mcp \
+  --header "Authorization: Bearer mnemo_…"
+```
+
+The same URL is a remote MCP server for the Claude API `mcp_servers` field
+(`authorization_token` = the API key). `GET /mcp` returns 405 — the transport
+is request/response over POST; there are no server-initiated SSE streams.
+claude.ai web Connectors require OAuth and are not yet supported.
+
+The stdio examples below use `"command"` + `"args"` + `"env"`.
 
 ### Claude Code
 
@@ -215,7 +235,7 @@ worked examples for the most common hosts.
       "command": "mnemos",
       "args": ["mcp"],
       "env": {
-        "MNEMOS_DATA_DIR": "/path/to/mnemos/data",
+        "MNEMOS_API_URL": "https://your-host",
         "MNEMOS_API_KEY": "mnemo_…"
       }
     }
@@ -234,7 +254,7 @@ worked examples for the most common hosts.
       "command": "mnemos",
       "args": ["mcp"],
       "env": {
-        "MNEMOS_DATA_DIR": "/path/to/mnemos/data",
+        "MNEMOS_API_URL": "https://your-host",
         "MNEMOS_API_KEY": "mnemo_…"
       }
     }

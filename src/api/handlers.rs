@@ -114,24 +114,24 @@ mnemos is MCP-native — use the MCP tools, not raw HTTP. A skill is just text,
 so it can't connect MCP by itself: STEP 1 registers the MCP server, STEP 2
 writes the skill that drives it.
 
-STEP 1 — Register the mnemos MCP server with Claude Code:
+STEP 1 — Register this mnemos server with Claude Code. This instance speaks
+MCP over HTTP, so no binary install is needed — point Claude Code straight at
+it:
 
-  mnemos setup --api-key YOUR_API_KEY
+  claude mcp add --transport http --scope user mnemos \
+    __BASE__/mcp \
+    --header "Authorization: Bearer YOUR_API_KEY"
 
-That runs `claude mcp add` for you. Reload Claude Code and the tools appear.
+Reload Claude Code and the mnemos tools appear. The same URL works as a remote
+MCP server for the Claude API `mcp_servers` field (authorization_token =
+YOUR_API_KEY).
 
-(Not running Claude Code? Add this to .mcp.json manually instead:
-{
-  "mcpServers": {
-    "mnemos": {
-      "command": "mnemos",
-      "args": ["mcp"],
-      "env": { "MNEMOS_API_URL": "__BASE__", "MNEMOS_API_KEY": "YOUR_API_KEY" }
-    }
-  }
-}
-No API key yet? Register one:
-POST __BASE__/api/v1/auth/register {"username","password"} returns an api_key.)
+(Prefer a local binary instead of the remote endpoint? Install mnemos and run
+`mnemos setup --api-key YOUR_API_KEY` — it registers a stdio server that
+proxies to __BASE__. No API key yet? Register one:
+POST __BASE__/api/v1/auth/register {"username","password"[,"secret":"…"]}
+returns an api_key. The `secret` field is required only if this instance was
+started with MNEMOS_SECRET.)
 
 STEP 2 — Write the skill to  .claude/skills/mnemos-memory/SKILL.md  with EXACTLY
 this content (YAML frontmatter + markdown body — the Claude Code / Agent skill
@@ -147,8 +147,8 @@ description: Persistent long-term memory backed by an mnemos server, used via
 
 # mnemos memory
 
-Long-term memory lives in the `mnemos` MCP server (already registered in
-.mcp.json). Always use its MCP tools — never call the HTTP API directly.
+Long-term memory lives in the `mnemos` MCP server (already registered with
+your host). Always use its MCP tools — never call the HTTP API directly.
 
 ## When to use this skill
 - RECALL: before answering, call `search_pages` for the topic, then `get_page`

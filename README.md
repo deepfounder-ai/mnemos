@@ -104,8 +104,33 @@ The same operations are available over REST (`docs/api.md`) and MCP
 
 ## Connect an LLM agent (MCP)
 
-mnemos runs an MCP server **in-process** against the same store, so the REST
-server is not required. Point your host at `mnemos mcp`:
+Two ways to connect, both speaking the same MCP surface.
+
+### Remote (HTTP) — recommended for a hosted server
+
+The server exposes MCP over HTTP at `POST /mcp` (JSON-RPC, Streamable HTTP).
+No binary install — point the client straight at the URL with a Bearer key:
+
+```bash
+claude mcp add --transport http --scope user mnemos \
+  https://your-host/mcp \
+  --header "Authorization: Bearer mnemo_…"
+```
+
+The same URL works as a remote MCP server for the Claude API `mcp_servers`
+field (`authorization_token` = the API key). claude.ai web Connectors need
+OAuth and are not yet supported.
+
+### Local (stdio) — `mnemos mcp`
+
+`mnemos mcp` runs a stdio MCP server that proxies to a REST API
+(`MNEMOS_API_URL` + `MNEMOS_API_KEY`). The quickest setup is:
+
+```bash
+MNEMOS_API_URL=https://your-host MNEMOS_API_KEY=mnemo_… mnemos setup
+```
+
+…which runs `claude mcp add` for you. Or configure the host manually:
 
 ```json
 {
@@ -114,7 +139,7 @@ server is not required. Point your host at `mnemos mcp`:
       "command": "mnemos",
       "args": ["mcp"],
       "env": {
-        "MNEMOS_DATA_DIR": "/path/to/mnemos/data",
+        "MNEMOS_API_URL": "https://your-host",
         "MNEMOS_API_KEY": "mnemo_…"
       }
     }
@@ -140,9 +165,10 @@ Tools: `list_pages`, `get_page`, `create_page`, `update_page`, `delete_page`,
 | `MNEMOS_LOG` / `RUST_LOG`    | `info`             | `tracing-subscriber` filter          |
 | `MNEMOS_MAX_SOURCE_BYTES`    | `10485760` (10 MB) | Max URL/upload source size           |
 | `MNEMOS_SOURCE_TIMEOUT_SECS` | `30`               | URL fetch timeout, seconds           |
+| `MNEMOS_SECRET`              | (unset)            | If set, gates `auth/register` behind a matching `secret` |
 
-CLI-only: `MNEMOS_API_URL` (default `http://localhost:8080`) and
-`MNEMOS_API_KEY` select the server the CLI talks to.
+CLI / stdio-MCP: `MNEMOS_API_URL` (default `http://localhost:8080`) and
+`MNEMOS_API_KEY` select the server the CLI and `mnemos mcp` talk to.
 
 ---
 
