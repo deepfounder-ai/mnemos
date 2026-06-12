@@ -196,11 +196,14 @@ Do this now, then confirm the MCP tools are available and the skill file exists.
 
 <h2>Connect over REST</h2>
 <p>All <code>/api/v1</code> routes need <code>Authorization: Bearer mnemo_…</code>.
-Register once, save the key (it is shown only at creation):</p>
+Register once, save the key (it is shown only at creation). If this instance
+was started with <code>MNEMOS_SECRET</code>, add a matching
+<code>"secret"</code> field to the register body:</p>
 <pre><code># 1. register
 curl -sS -X POST http://127.0.0.1:8090/api/v1/auth/register \
   -H 'Content-Type: application/json' \
   -d '{"username":"alice","password":"correct horse battery staple"}'
+  # add ,"secret":"<MNEMOS_SECRET>" if the server requires it
 # -> {"user_id":"…","api_key":"mnemo_…", …}
 
 # 2. use the key
@@ -279,6 +282,19 @@ pub async fn register(
     State(state): State<AppState>,
     Json(req): Json<RegisterRequest>,
 ) -> ApiResult<Response> {
+    // Gate registration behind a shared secret when the server is configured
+    // with one. Constant-time compare to avoid leaking the secret via timing.
+    let expected = state.config.registration_secret.as_str();
+    if !expected.is_empty() {
+        let provided = req.secret.as_deref().unwrap_or("");
+        if !constant_time_eq(provided.as_bytes(), expected.as_bytes()) {
+            return Err(AppError::Forbidden(
+                "registration requires a valid secret".into(),
+            )
+            .into());
+        }
+    }
+
     validate_api_username(&req.username).map_err(unprocessable)?;
     validate_api_password(&req.password).map_err(unprocessable)?;
 
@@ -674,4 +690,17 @@ fn markdown(body: String) -> Response {
 
 fn unprocessable(msg: String) -> AppError {
     AppError::Unprocessable(msg)
+}
+
+/// Length-aware constant-time byte comparison. Avoids early-exit on the first
+/// differing byte so the registration secret can't be recovered via timing.
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut diff = 0u8;
+    for (x, y) in a.iter().zip(b.iter()) {
+        diff |= x ^ y;
+    }
+    diff == 0
 }

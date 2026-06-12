@@ -61,6 +61,7 @@ docker run -d \
   --restart unless-stopped \
   -p "${PORT}:8080" \
   -v mnemos-data:/data \
+  ${MNEMOS_SECRET:+-e MNEMOS_SECRET="$MNEMOS_SECRET"} \
   "$IMAGE" >/dev/null
 
 BASE="http://127.0.0.1:${PORT}"
@@ -73,9 +74,14 @@ until curl -fsS "${BASE}/healthz" >/dev/null 2>&1; do
 done
 
 say "registering user '$USER_NAME'"
+if [ -n "${MNEMOS_SECRET:-}" ]; then
+  REG_BODY="{\"username\":\"${USER_NAME}\",\"password\":\"${PASS}\",\"secret\":\"${MNEMOS_SECRET}\"}"
+else
+  REG_BODY="{\"username\":\"${USER_NAME}\",\"password\":\"${PASS}\"}"
+fi
 RESP="$(curl -fsS -X POST "${BASE}/api/v1/auth/register" \
   -H 'Content-Type: application/json' \
-  -d "{\"username\":\"${USER_NAME}\",\"password\":\"${PASS}\"}" || true)"
+  -d "$REG_BODY" || true)"
 
 API_KEY="$(printf '%s' "$RESP" | sed -n 's/.*"api_key":"\([^"]*\)".*/\1/p')"
 

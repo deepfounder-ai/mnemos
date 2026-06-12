@@ -51,6 +51,10 @@ pub struct ErrorEnvelope<'a> {
 pub struct RegisterRequest {
     pub username: String,
     pub password: String,
+    /// Shared registration secret. Required only when the server is started
+    /// with `MNEMOS_SECRET` set; ignored otherwise.
+    #[serde(default)]
+    pub secret: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

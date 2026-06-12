@@ -15,8 +15,14 @@ struct TestServer {
 
 impl TestServer {
     async fn start() -> Self {
+        Self::start_with(|_| {}).await
+    }
+
+    /// Start a server, mutating the `Config` before the store is initialised.
+    async fn start_with(mutate: impl FnOnce(&mut Config)) -> Self {
         let dir = tempfile::tempdir().expect("tempdir");
-        let cfg = Config::for_test(dir.path().to_path_buf());
+        let mut cfg = Config::for_test(dir.path().to_path_buf());
+        mutate(&mut cfg);
         let state = mnemos::storage::init_pool(cfg).await.expect("init pool");
         let app = mnemos::api::router(state);
 
@@ -99,6 +105,44 @@ async fn register_duplicate_conflicts() {
     assert_eq!(resp.status(), 409);
     let body: Value = resp.json().await.unwrap();
     assert_eq!(body["error"]["code"], "conflict");
+}
+
+#[tokio::test]
+async fn registration_secret_gates_signup() {
+    let s = TestServer::start_with(|cfg| {
+        cfg.registration_secret = "swordfish".into();
+    })
+    .await;
+
+    // No secret -> forbidden.
+    let resp = s
+        .http
+        .post(s.url("/api/v1/auth/register"))
+        .json(&json!({ "username": "alice", "password": "hunter2hunter2" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 403, "missing secret should be forbidden");
+
+    // Wrong secret -> forbidden.
+    let resp = s
+        .http
+        .post(s.url("/api/v1/auth/register"))
+        .json(&json!({ "username": "alice", "password": "hunter2hunter2", "secret": "nope" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 403, "wrong secret should be forbidden");
+
+    // Correct secret -> created.
+    let resp = s
+        .http
+        .post(s.url("/api/v1/auth/register"))
+        .json(&json!({ "username": "alice", "password": "hunter2hunter2", "secret": "swordfish" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 201, "correct secret should create the user");
 }
 
 #[tokio::test]

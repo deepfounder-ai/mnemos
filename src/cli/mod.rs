@@ -109,6 +109,10 @@ pub enum UserCmd {
         /// Read the password from stdin (trailing newline trimmed).
         #[arg(long)]
         password_stdin: bool,
+        /// Registration secret (required if the server sets MNEMOS_SECRET).
+        /// Falls back to the MNEMOS_SECRET env var.
+        #[arg(long)]
+        secret: Option<String>,
     },
     /// Exchange username + password for a fresh API key.
     Login {

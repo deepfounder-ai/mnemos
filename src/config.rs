@@ -38,6 +38,13 @@ pub struct Config {
     /// Timeout for URL source fetches, in seconds.
     #[serde(default = "default_source_timeout_secs")]
     pub source_timeout_secs: u64,
+
+    /// Optional shared secret that gates user registration. When set, every
+    /// `POST /api/v1/auth/register` must present a matching `secret`. When
+    /// empty, registration is open (the default). Set via `MNEMOS_SECRET` to
+    /// keep a public instance from accumulating unwanted accounts.
+    #[serde(default)]
+    pub registration_secret: String,
 }
 
 fn default_host() -> String {
@@ -95,6 +102,8 @@ impl Config {
             Err(_) => default_source_timeout_secs(),
         };
 
+        let registration_secret = std::env::var("MNEMOS_SECRET").unwrap_or_default();
+
         Ok(Self {
             host,
             port,
@@ -103,6 +112,7 @@ impl Config {
             log_filter,
             max_source_bytes,
             source_timeout_secs,
+            registration_secret,
         })
     }
 
@@ -117,6 +127,7 @@ impl Config {
             log_filter: "warn".to_string(),
             max_source_bytes: default_max_source_bytes(),
             source_timeout_secs: default_source_timeout_secs(),
+            registration_secret: String::new(),
         }
     }
 

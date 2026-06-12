@@ -24,13 +24,16 @@ pub async fn run(client: Client, json: bool, cmd: UserCmd) -> CliResult<()> {
             username,
             password,
             password_stdin,
+            secret,
         } => {
             let password = resolve_password(password, password_stdin)?;
+            let mut payload = json!({ "username": username, "password": password });
+            let secret = secret.or_else(|| std::env::var("MNEMOS_SECRET").ok());
+            if let Some(s) = secret {
+                payload["secret"] = json!(s);
+            }
             let resp: AuthResponse = client
-                .post_noauth(
-                    "/api/v1/auth/register",
-                    &json!({ "username": username, "password": password }),
-                )
+                .post_noauth("/api/v1/auth/register", &payload)
                 .await?;
             emit_auth(json, &resp)
         }
