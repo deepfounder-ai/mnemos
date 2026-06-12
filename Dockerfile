@@ -9,10 +9,16 @@ WORKDIR /app
 # Prime the dependency cache: copy manifests first, build a dummy target, then
 # copy the real sources. This keeps `cargo build` cached across source-only
 # changes.
-# Limit parallelism so the build fits in low-memory environments (e.g. EasyPanel).
-# CARGO_BUILD_JOBS can be overridden at build time: --build-arg CARGO_BUILD_JOBS=4
-ARG CARGO_BUILD_JOBS=2
+# Memory-efficient build settings for servers with limited RAM (e.g. EasyPanel).
+# These override Cargo.toml profile settings:
+#   - lto=off: skip link-time optimization (saves ~1-2GB peak RAM)
+#   - codegen-units=16: split into smaller units compiled one at a time
+#   - jobs=1: only one unit in flight at a time (lowest peak RAM)
+# Override: --build-arg CARGO_BUILD_JOBS=4 --build-arg RUSTFLAGS=""
+ARG CARGO_BUILD_JOBS=1
 ENV CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS}
+ARG RUSTFLAGS="-C lto=off -C codegen-units=16"
+ENV RUSTFLAGS=${RUSTFLAGS}
 
 COPY Cargo.toml Cargo.lock ./
 RUN mkdir -p src \
