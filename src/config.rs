@@ -108,7 +108,9 @@ fn default_typesafe_model() -> String {
     "jev-1.13.0".to_string()
 }
 fn default_related_threshold() -> f64 {
-    0.75
+    // Calibrated 2026-09-24 on a 58-page corpus (see docs/enrichment.md):
+    // 0.6 gives ~2x the recall of 0.75 at similar measured precision.
+    0.6
 }
 fn default_tag_threshold() -> f64 {
     0.8

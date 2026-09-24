@@ -44,18 +44,42 @@ on-demand call, in the response.
 | `MNEMOS_TYPESAFE_API_KEY` | (unset) | Enables the feature. |
 | `MNEMOS_TYPESAFE_URL` | `https://api.typesafe.ai/v1/systemone` | Endpoint. |
 | `MNEMOS_TYPESAFE_MODEL` | `jev-1.13.0` | **Pinned** model. Don't use `jev-latest` — answers shift between releases. |
-| `MNEMOS_ENRICH_RELATED_THRESHOLD` | `0.75` | `noul` cut-off for adding an edge. |
+| `MNEMOS_ENRICH_RELATED_THRESHOLD` | `0.6` | `noul` cut-off for adding an edge. |
 | `MNEMOS_ENRICH_TAG_THRESHOLD` | `0.8` | `noul` cut-off for adding a tag. |
 | `MNEMOS_ENRICH_TYPE_OVERRIDE` | `false` | Allow overwriting an existing `page_type`. |
 | `MNEMOS_ENRICH_MAX_ADDITIONS` | `8` | Max tags and max edges added per pass. |
 
-## Thresholds are unvalidated
+## Calibration
 
-The defaults are starting points, not tuned values. Calibrate before trusting
-them: the existing `related[]` graph is free ground truth — strip edges from a
-copy of the corpus, run enrichment, and measure how many original edges come
-back (recall) against how many new edges are wrong (precision). Pick the
-threshold from that curve, not from the default.
+Defaults were calibrated on 2026-09-24 against a 58-page corpus with
+`jev-1.13.0`, using the corpus's own metadata as ground truth: `related[]` and
+`page_type` were stripped and re-predicted; 2 tags per page were hidden and
+re-predicted. Precision below is a **lower bound** — the hand-built graph is
+incomplete, and a manual review of "false" edges in the 0.60–0.75 band found
+~10 of 14 were sensible links that simply hadn't been added.
+
+**related** (167 true edges; 92% reachable via the shared-tag prefilter):
+
+| threshold | precision (lower bound) | recall |
+|-----------|------------------------|--------|
+| 0.50 | 54% | 50% |
+| **0.60** | **59%** | **44%** |
+| 0.75 | 62% | 23% |
+| 0.80 | 66% | 11% |
+
+Median `noul` for true edges was 0.52 vs 0.17 for non-edges — Jev separates
+them, but true-edge scores are moderate, so high thresholds starve the graph.
+
+**page_type**: 79% agreement with the hand labels (88% at confidence ≥ 0.9).
+Most disagreements were the corpus over-labelling `concept` (e.g. an "X vs Y"
+page predicted as `decision`, a syntax lookup as `reference`) — which is why
+enrichment only fills a *missing* type by default.
+
+**tags** at 0.8: 71% precision (lower bound), recovers 15% of hidden tags
+against a 56% ceiling (hidden tags unique to one page aren't in the vocabulary).
+
+Re-run calibration if you change the model version or the corpus grows a lot.
+Cost of the full run: ~214K input tokens ≈ $0.01.
 
 ## Cost
 
