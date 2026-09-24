@@ -179,6 +179,7 @@ Tools: `list_pages`, `get_page`, `create_page`, `update_page`, `delete_page`,
 | `MNEMOS_MAX_SOURCE_BYTES`    | `10485760` (10 MB) | Max URL/upload source size           |
 | `MNEMOS_SOURCE_TIMEOUT_SECS` | `30`               | URL fetch timeout, seconds           |
 | `MNEMOS_SECRET`              | (unset)            | If set, gates `auth/register` behind a matching `secret` |
+| `MNEMOS_TYPESAFE_API_KEY`    | (unset)            | Enables Jev enrichment (page_type, tags, related edges) — see [docs/enrichment.md](docs/enrichment.md) |
 
 CLI / stdio-MCP: `MNEMOS_API_URL` (default `http://localhost:8080`) and
 `MNEMOS_API_KEY` select the server the CLI and `mnemos mcp` talk to.
@@ -214,6 +215,7 @@ cli / mcp / api  (transport)
 - [docs/page-format.md](docs/page-format.md) — frontmatter + body spec.
 - [docs/api.md](docs/api.md) — REST endpoints, auth, errors, curl examples.
 - [docs/mcp.md](docs/mcp.md) — MCP tools, resources, host configuration.
+- [docs/enrichment.md](docs/enrichment.md) — optional TypeSafe/Jev classification + auto-linking.
 - [docs/cli.md](docs/cli.md) — every subcommand, env config, exit codes.
 - [examples/](examples/) — worked pages (one per `page_type`) + a sample source.
 - [CHANGELOG.md](CHANGELOG.md) — release notes.

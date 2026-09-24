@@ -6,5 +6,7 @@ pub mod lint;
 pub mod log;
 pub mod page;
 pub mod search;
+pub mod enrich;
 pub mod slug;
 pub mod source;
+pub mod typesafe;

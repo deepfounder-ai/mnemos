@@ -417,8 +417,9 @@ pub async fn create_page(
     }
     let slug = req.slug.unwrap_or_default();
 
-    let svc = PageService::new(state);
+    let svc = PageService::new(state.clone());
     let page = svc.create(&ctx.user_id, &slug, fm, &body).await?;
+    spawn_enrich(state, ctx.user_id.clone(), page.slug.clone());
     Ok((StatusCode::CREATED, Json(page_ref(&page))).into_response())
 }
 
@@ -438,7 +439,7 @@ pub async fn update_page(
     Path(slug): Path<String>,
     Json(req): Json<UpdatePageRequest>,
 ) -> ApiResult<Response> {
-    let svc = PageService::new(state);
+    let svc = PageService::new(state.clone());
     let existing = svc.get(&ctx.user_id, &slug).await?;
 
     let mut fm = if req.frontmatter.is_some() || req.frontmatter_yaml.is_some() {
@@ -457,7 +458,73 @@ pub async fn update_page(
     let body = req.body.unwrap_or(existing.body);
 
     let page = svc.update(&ctx.user_id, &slug, fm, &body).await?;
+    spawn_enrich(state, ctx.user_id.clone(), page.slug.clone());
     Ok(Json(page_ref(&page)).into_response())
+}
+
+// ---------------------------------------------------------------------------
+// Knowledge enrichment (TypeSafe / Jev)
+// ---------------------------------------------------------------------------
+
+/// Serialises background enrichment so two passes never read-modify-write the
+/// same page's `related[]` concurrently (a lost-update race). Enrichment is
+/// low-volume background work, so one-at-a-time is fine.
+static ENRICH_LOCK: std::sync::OnceLock<tokio::sync::Mutex<()>> = std::sync::OnceLock::new();
+
+/// Fire-and-forget enrichment of one page after a write. A no-op when the
+/// feature is disabled, so the request path pays nothing. Errors are logged,
+/// never surfaced — enrichment must not fail a user's write.
+fn spawn_enrich(state: AppState, user_id: String, slug: String) {
+    if !state.config.enrich.enabled() {
+        return;
+    }
+    tokio::spawn(async move {
+        let _guard = ENRICH_LOCK
+            .get_or_init(|| tokio::sync::Mutex::new(()))
+            .lock()
+            .await;
+        match crate::core::enrich::enrich_page(&state, &user_id, &slug).await {
+            Ok(r) => tracing::info!(
+                slug = %r.slug,
+                page_type = ?r.page_type_set,
+                tags = ?r.tags_added,
+                related = ?r.related_added,
+                skipped = ?r.skipped,
+                "enrich: page processed"
+            ),
+            Err(e) => tracing::warn!(slug = %slug, error = %e, "enrich: failed"),
+        }
+    });
+}
+
+/// `POST /api/v1/enrich[?slug=…]` — run enrichment synchronously and return
+/// the per-page reports. With `slug`, enriches one page; without, backfills
+/// every page for the caller. Returns 409 when the feature is disabled.
+pub async fn enrich(
+    State(state): State<AppState>,
+    ctx: AuthContext,
+    Query(q): Query<EnrichQuery>,
+) -> ApiResult<Response> {
+    if !state.config.enrich.enabled() {
+        return Err(AppError::Conflict(
+            "enrichment disabled: set MNEMOS_TYPESAFE_API_KEY on the server".into(),
+        )
+        .into());
+    }
+    let _guard = ENRICH_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock()
+        .await;
+    let reports = match q.slug {
+        Some(slug) => vec![crate::core::enrich::enrich_page(&state, &ctx.user_id, &slug).await?],
+        None => crate::core::enrich::enrich_all(&state, &ctx.user_id).await?,
+    };
+    let changed = reports
+        .iter()
+        .filter(|r| r.page_type_set.is_some() || !r.tags_added.is_empty() || !r.related_added.is_empty())
+        .count();
+    Ok(Json(json!({ "processed": reports.len(), "changed": changed, "reports": reports }))
+        .into_response())
 }
 
 pub async fn delete_page(

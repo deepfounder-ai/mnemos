@@ -85,6 +85,13 @@ pub enum Cmd {
     },
     /// Run linter over the user's wiki.
     Lint,
+    /// Run TypeSafe/Jev enrichment (page_type, tags, related edges).
+    /// Requires MNEMOS_TYPESAFE_API_KEY on the server.
+    Enrich {
+        /// Enrich one page. Omit to backfill every page.
+        #[arg(long)]
+        slug: Option<String>,
+    },
     /// Register the mnemos MCP server with Claude Code (runs `claude mcp add`).
     Setup {
         /// Override the data directory passed to the MCP server.

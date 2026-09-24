@@ -208,6 +208,48 @@ pub async fn run_lint(client: &Client, json: bool) -> CliResult<()> {
     Ok(())
 }
 
+/// `enrich [--slug X]` — trigger TypeSafe/Jev enrichment on the server.
+pub async fn run_enrich(client: &Client, json: bool, slug: Option<&str>) -> CliResult<()> {
+    let path = match slug {
+        Some(s) => format!("/api/v1/enrich?slug={}", encode(s)),
+        None => "/api/v1/enrich".to_string(),
+    };
+    let v: serde_json::Value = client.post(&path, &json!({})).await?;
+    if json {
+        return print_json(&v);
+    }
+    let processed = v.get("processed").and_then(|x| x.as_u64()).unwrap_or(0);
+    let changed = v.get("changed").and_then(|x| x.as_u64()).unwrap_or(0);
+    if let Some(reports) = v.get("reports").and_then(|r| r.as_array()) {
+        for r in reports {
+            let slug = r.get("slug").and_then(|x| x.as_str()).unwrap_or("?");
+            let list = |k: &str| {
+                r.get(k)
+                    .and_then(|x| x.as_array())
+                    .map(|a| a.iter().filter_map(|s| s.as_str()).collect::<Vec<_>>().join(", "))
+                    .unwrap_or_default()
+            };
+            let (tags, rel) = (list("tags_added"), list("related_added"));
+            let ptype = r.get("page_type_set").and_then(|x| x.as_str());
+            if tags.is_empty() && rel.is_empty() && ptype.is_none() {
+                continue;
+            }
+            print_line(format!("{slug}"));
+            if let Some(t) = ptype {
+                print_line(format!("  type    → {t}"));
+            }
+            if !tags.is_empty() {
+                print_line(format!("  +tags   {tags}"));
+            }
+            if !rel.is_empty() {
+                print_line(format!("  +related {rel}"));
+            }
+        }
+    }
+    print_line(format!("{processed} page(s) processed, {changed} changed"));
+    Ok(())
+}
+
 fn encode(s: &str) -> String {
     s.chars()
         .map(|c| match c {

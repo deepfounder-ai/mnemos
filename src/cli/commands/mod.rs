@@ -66,6 +66,7 @@ async fn dispatch(cli: Cli) -> CliResult<()> {
             misc::run_log(&client, cli.json, since.as_deref(), limit).await
         }
         Cmd::Lint => misc::run_lint(&client, cli.json).await,
+        Cmd::Enrich { slug } => misc::run_enrich(&client, cli.json, slug.as_deref()).await,
     }
 }
 

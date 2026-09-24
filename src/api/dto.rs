@@ -150,6 +150,12 @@ pub struct UpdatePageRequest {
     pub frontmatter_yaml: Option<String>,
 }
 
+/// Query for `POST /api/v1/enrich`. Omit `slug` to backfill every page.
+#[derive(Debug, Deserialize)]
+pub struct EnrichQuery {
+    pub slug: Option<String>,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ListPagesQuery {
     pub tag: Option<String>,

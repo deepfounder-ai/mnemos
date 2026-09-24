@@ -45,6 +45,76 @@ pub struct Config {
     /// keep a public instance from accumulating unwanted accounts.
     #[serde(default)]
     pub registration_secret: String,
+
+    /// TypeSafe (Jev) knowledge-enrichment settings. When `typesafe_api_key`
+    /// is empty the whole feature is off and the server behaves exactly as
+    /// before — no Jev calls, no background work.
+    #[serde(default)]
+    pub enrich: EnrichConfig,
+}
+
+/// Configuration for the optional TypeSafe/Jev enrichment pass.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnrichConfig {
+    /// TypeSafe API key (`MNEMOS_TYPESAFE_API_KEY`). Empty = feature disabled.
+    #[serde(default)]
+    pub api_key: String,
+    /// Endpoint (`MNEMOS_TYPESAFE_URL`).
+    #[serde(default = "default_typesafe_url")]
+    pub url: String,
+    /// Pinned model id (`MNEMOS_TYPESAFE_MODEL`). Pin a version, not `jev-latest`.
+    #[serde(default = "default_typesafe_model")]
+    pub model: String,
+    /// noul threshold to add a `related` edge (`MNEMOS_ENRICH_RELATED_THRESHOLD`).
+    #[serde(default = "default_related_threshold")]
+    pub related_threshold: f64,
+    /// noul threshold to add a tag (`MNEMOS_ENRICH_TAG_THRESHOLD`).
+    #[serde(default = "default_tag_threshold")]
+    pub tag_threshold: f64,
+    /// choice confidence threshold to overwrite an existing page_type
+    /// (`MNEMOS_ENRICH_TYPE_OVERRIDE`, default false = only fill when missing).
+    #[serde(default)]
+    pub type_override: bool,
+    /// Max related edges + max tags added per page per pass, to bound cost.
+    #[serde(default = "default_enrich_cap")]
+    pub max_additions: usize,
+}
+
+impl Default for EnrichConfig {
+    fn default() -> Self {
+        Self {
+            api_key: String::new(),
+            url: default_typesafe_url(),
+            model: default_typesafe_model(),
+            related_threshold: default_related_threshold(),
+            tag_threshold: default_tag_threshold(),
+            type_override: false,
+            max_additions: default_enrich_cap(),
+        }
+    }
+}
+
+impl EnrichConfig {
+    /// Whether the enrichment feature is active.
+    pub fn enabled(&self) -> bool {
+        !self.api_key.trim().is_empty()
+    }
+}
+
+fn default_typesafe_url() -> String {
+    "https://api.typesafe.ai/v1/systemone".to_string()
+}
+fn default_typesafe_model() -> String {
+    "jev-1.13.0".to_string()
+}
+fn default_related_threshold() -> f64 {
+    0.75
+}
+fn default_tag_threshold() -> f64 {
+    0.8
+}
+fn default_enrich_cap() -> usize {
+    8
 }
 
 fn default_host() -> String {
@@ -104,6 +174,29 @@ impl Config {
 
         let registration_secret = std::env::var("MNEMOS_SECRET").unwrap_or_default();
 
+        let enrich = EnrichConfig {
+            api_key: std::env::var("MNEMOS_TYPESAFE_API_KEY").unwrap_or_default(),
+            url: std::env::var("MNEMOS_TYPESAFE_URL").unwrap_or_else(|_| default_typesafe_url()),
+            model: std::env::var("MNEMOS_TYPESAFE_MODEL")
+                .unwrap_or_else(|_| default_typesafe_model()),
+            related_threshold: parse_env_f64(
+                "MNEMOS_ENRICH_RELATED_THRESHOLD",
+                default_related_threshold(),
+            )?,
+            tag_threshold: parse_env_f64("MNEMOS_ENRICH_TAG_THRESHOLD", default_tag_threshold())?,
+            type_override: std::env::var("MNEMOS_ENRICH_TYPE_OVERRIDE")
+                .map(|v| matches!(v.trim(), "1" | "true" | "yes"))
+                .unwrap_or(false),
+            max_additions: match std::env::var("MNEMOS_ENRICH_MAX_ADDITIONS") {
+                Ok(s) => s
+                    .parse()
+                    .map_err(|e: std::num::ParseIntError| {
+                        ConfigError::ParseInt(format!("MNEMOS_ENRICH_MAX_ADDITIONS: {e}"))
+                    })?,
+                Err(_) => default_enrich_cap(),
+            },
+        };
+
         Ok(Self {
             host,
             port,
@@ -113,6 +206,7 @@ impl Config {
             max_source_bytes,
             source_timeout_secs,
             registration_secret,
+            enrich,
         })
     }
 
@@ -128,6 +222,7 @@ impl Config {
             max_source_bytes: default_max_source_bytes(),
             source_timeout_secs: default_source_timeout_secs(),
             registration_secret: String::new(),
+            enrich: EnrichConfig::default(),
         }
     }
 
@@ -143,9 +238,18 @@ impl Config {
     }
 }
 
+fn parse_env_f64(var: &str, default: f64) -> Result<f64, ConfigError> {
+    match std::env::var(var) {
+        Ok(s) => s
+            .parse()
+            .map_err(|e: std::num::ParseFloatError| ConfigError::ParseInt(format!("{var}: {e}"))),
+        Err(_) => Ok(default),
+    }
+}
+
 /// Configuration errors.
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
-    #[error("invalid integer in env: {0}")]
+    #[error("invalid number in env: {0}")]
     ParseInt(String),
 }

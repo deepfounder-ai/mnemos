@@ -62,6 +62,7 @@ pub fn router(state: AppState) -> Router {
         .route("/index", get(handlers::get_index))
         .route("/log", get(handlers::get_log))
         .route("/lint", get(handlers::lint))
+        .route("/enrich", post(handlers::enrich))
         .route_layer(axum::middleware::from_fn_with_state(
             state.clone(),
             require_auth,
